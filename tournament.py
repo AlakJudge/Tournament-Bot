@@ -43,11 +43,11 @@ class Tournament:
     def next_round(self):
         self.round = self.round + 1
 
-    #
+    # Set the winner of the tournament
     def set_winner(self, winner):
         self.winner = winner
 
-    #
+    # Save the tournament details to the json file
     def save(self):
         # Get existing tournaments
         tournaments = Tournament.load_all_tournaments()

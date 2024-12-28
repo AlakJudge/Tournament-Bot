@@ -9,17 +9,18 @@ inner_message_id = None
 curr_num_matches = 0
 tournament_channel = None
 
+# Function that controls the flow of the tournament
 async def run_tournament(tournament:Tournament, interaction: discord.Interaction):
-    if not tournament.winner:
-        if tournament.round == 1:
-            details = set_details(tournament)   
-            await interaction.response.send_modal(details)         
-            await details.wait() 
+    # This will always run, unless the final game has been played and a winner selected
+    if not tournament.winner: 
+        details = set_details(tournament)
+        await interaction.response.send_modal(details)         
+        await details.wait() 
+        # This will run if it's a brand new tournament
+        if tournament.round == 1: 
             await set_brackets(interaction, tournament, details.game_size, details.min_games)
+        # This one includes the list of the winners from the previous round
         else:
-            details = set_details(tournament)
-            await interaction.response.send_modal(details)         
-            await details.wait() 
             await set_brackets(interaction, tournament, details.game_size, details.min_games, t_players=tournament.winners)
     else:
         global tournament_channel
@@ -94,6 +95,7 @@ class Select_Winner_Menu(discord.ui.Select):
             confirmation_message = await tournament_channel.send(f"Would you like to proceed to the next round?", view=view)
             view.conf_message = confirmation_message
 
+# Ask Admin if they'd like to proceed to the next round with a confirmation button
 class Next_Round_Confirmation_View(discord.ui.View):
     def __init__(self, tournament:Tournament, conf_message=None):
         super().__init__()
@@ -102,17 +104,16 @@ class Next_Round_Confirmation_View(discord.ui.View):
 
     @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
     async def confirm(self, button: discord.ui.Button, interaction: discord.Interaction):
-        self.tournament.next_round()
-        self.tournament.save()
+        self.tournament.next_round() # Set round to +1
+        self.tournament.save() # Save to json file
 
-        await run_tournament(self.tournament, interaction)
+        await run_tournament(self.tournament, interaction) # Start the next round of the tournament
         await interaction.followup.send(f"## ROUND {self.tournament.round} STARTED!")
         if self.conf_message:
             await self.conf_message.delete()
 
-
+# Function with the logic to divide players into brackets, create the threads and allocate the players respectively
 async def set_brackets(interaction, tournament:Tournament, game_size: int, min_games: int, t_players:list = None):
-
     players = []
     if not t_players:
         t_players = tournament.players

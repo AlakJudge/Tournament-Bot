@@ -268,9 +268,11 @@ async def tournament_list(ctx):
                     guild_ids=[1286841607576092763],
                     default_member_permissions=discord.Permissions(manage_channels=True))
 async def admin(ctx, id:int = discord.Option(description="Find this ID number by using the tournaments_list command")):
+   
     tournaments = Tournament.load_all_tournaments()
-    tournament = next((t for t in tournaments if t.id == int(id)), None)
+    tournament = next((t for t in tournaments if t.id == int(id)), None) # Go through all tournaments and find the id entered.
 
+    # Only allow users with this permission to admin tournaments (TODO: Change this to a tournament organizer role)
     if not ctx.author.guild_permissions.manage_channels:
         await ctx.respond("You don't have the required permissions to use this command.", ephemeral=True)
         return
@@ -284,7 +286,7 @@ async def admin(ctx, id:int = discord.Option(description="Find this ID number by
     await ctx.respond("", view=view, embed=embed)
 
     admin_msg = await ctx.interaction.original_response()    
-    global admin_message_id
+    global admin_message_id # Set global variable for the id of the admin message (TODO: Incorporate this into the Tournament class)
     admin_message_id = admin_msg.id
 
 def main():
