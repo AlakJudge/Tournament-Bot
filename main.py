@@ -1,7 +1,6 @@
 from typing import Final
 import os
 import discord
-import discord.commands
 from dotenv import load_dotenv
 import manage
 from tournament import Tournament
