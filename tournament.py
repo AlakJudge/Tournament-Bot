@@ -1,6 +1,9 @@
 import json
 import os
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+json_file_path = os.path.join(current_dir, "tournaments.json")
+
 class Tournament:
     def __init__(self, id, reg_channel, name, game, date, time, round=1, players=None, winners=None, winner=None):
         self.id = id
@@ -74,7 +77,7 @@ class Tournament:
             tournaments.append(self)
 
         # Save all tournaments to JSON
-        with open("tournaments.json", "w") as file:
+        with open(json_file_path, "w") as file:
             json.dump([t.__dict__ for t in tournaments], file, indent=4)
 
     @staticmethod
@@ -83,11 +86,11 @@ class Tournament:
             json.dump([t.__dict__ for t in tournaments], file, indent=4)
     
     @staticmethod
-    def load_all_tournaments(file_path="Tournament-Bot\\tournaments.json"):
+    def load_all_tournaments():
         tournaments = []
-        if os.path.exists(file_path):
+        if os.path.exists(json_file_path):
             try:
-                with open(file_path, "r") as file:
+                with open(json_file_path, "r") as file:
                     data = json.load(file)
                     for item in data:
                         tournaments.append(
