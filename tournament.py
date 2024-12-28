@@ -83,11 +83,11 @@ class Tournament:
             json.dump([t.__dict__ for t in tournaments], file, indent=4)
     
     @staticmethod
-    def load_all_tournaments():
+    def load_all_tournaments(file_path="Tournament-Bot\\tournaments.json"):
         tournaments = []
-        if os.path.exists("tournaments.json"):
+        if os.path.exists(file_path):
             try:
-                with open("tournaments.json", "r") as file:
+                with open(file_path, "r") as file:
                     data = json.load(file)
                     for item in data:
                         tournaments.append(
