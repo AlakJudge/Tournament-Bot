@@ -1,0 +1,36 @@
+[
+    {
+        "id": 1,
+        "reg_channel": 1287540412956803122,
+        "name": "Test Tournament",
+        "game": "Monopoly",
+        "date": "05/05/2025",
+        "time": "10:00 AM",
+        "round": 1,
+        "players": [
+            "davi_mgs",
+            "alakjudge",
+            "patriciacas",
+            "slowrider836"
+        ],
+        "winners": [],
+        "winner": ""
+    },
+    {
+        "id": 2,
+        "reg_channel": 1291224789637271623,
+        "name": "Test tournament",
+        "game": "Monopoly",
+        "date": "27/12/2024",
+        "time": "03:58 AM",
+        "round": 1,
+        "players": [
+            "slowrider836",
+            "davi_mgs",
+            "patriciacas",
+            "alakjudge"
+        ],
+        "winners": [],
+        "winner": ""
+    }
+]
