@@ -5,9 +5,17 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 json_file_path = os.path.join(current_dir, "tournaments.json")
 
 class Tournament:
-    def __init__(self, id, reg_channel, name, game, date, time, round=1, players=None, winners=None, winner=None):
+    def __init__(self, id, name, game, date, time, round=1, 
+                 reg_channel=None, reg_msg_id=None, admin_msg_id=None, tournament_channel_id=None, 
+                 tournament_channel_msg_id=None, participants_channel_id=None, curr_num_matches=None, players=None, winners=None, winner=None):
         self.id = id
         self.reg_channel = reg_channel
+        self.reg_msg_id = reg_msg_id
+        self.admin_msg_id = admin_msg_id
+        self.tournament_channel_id = tournament_channel_id
+        self.tournament_channel_msg_id = tournament_channel_msg_id
+        self.participants_channel_id = participants_channel_id
+        self.curr_num_matches = curr_num_matches
         self.name = name
         self.game = game
         self.date = date
@@ -62,6 +70,12 @@ class Tournament:
             for t in tournaments:
                 if t.id == self.id:
                     t.reg_channel = self.reg_channel
+                    t.reg_msg_id = self.reg_msg_id
+                    t.admin_msg_id = self.admin_msg_id
+                    t.tournament_channel_id = self.tournament_channel_id
+                    t.tournament_channel_msg_id = self.tournament_channel_msg_id
+                    t.participants_channel_id = self.participants_channel_id
+                    t.curr_num_matches = self.curr_num_matches
                     t.name = self.name
                     t.game = self.game
                     t.date = self.date
@@ -97,6 +111,12 @@ class Tournament:
                             Tournament(
                                 id=item["id"],
                                 reg_channel=item["reg_channel"],
+                                reg_msg_id=item["reg_msg_id"],
+                                admin_msg_id=item["admin_msg_id"],
+                                tournament_channel_id=item["tournament_channel_id"],
+                                tournament_channel_msg_id=item["tournament_channel_msg_id"],
+                                participants_channel_id=item["participants_channel_id"],
+                                curr_num_matches=item["curr_num_matches"],
                                 name=item["name"],
                                 game=item["game"],
                                 date=item["date"],
@@ -128,14 +148,3 @@ class Tournament:
         tournaments = Tournament.load_all_tournaments()
         tournaments = [t for t in tournaments if t.id != id]
         Tournament.save_all(tournaments)
-
-    def display(self):
-        print()
-        print(f"## TOURNAMENT - {self.name.upper()} ##")
-        print(f"- ID: {self.id}")
-        print(f"- Game: {self.game}")
-        print(f"- Date: {self.date}")
-        print(f"- Time: {self.time}")
-        print(f"- Players Registered: {len(self.players)}")
-        for i, player in enumerate(self.players, 1):
-            print(f"{i}. {player}")

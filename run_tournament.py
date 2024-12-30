@@ -3,11 +3,8 @@ from math import ceil
 from tournament import Tournament
 from random import shuffle
 import discord
-import main
-
-inner_message_id = None
-curr_num_matches = 0
-tournament_channel = None
+from manage import *
+import manage
 
 # Function that controls the flow of the tournament
 async def run_tournament(tournament:Tournament, interaction: discord.Interaction):
@@ -24,8 +21,7 @@ async def run_tournament(tournament:Tournament, interaction: discord.Interaction
         else:
             await set_brackets(interaction, tournament, details.game_size, details.min_games, t_players=tournament.winners)
     else:
-        global tournament_channel
-        tournament_channel = discord.utils.get(interaction.guild.text_channels, name=tournament.name.replace(" ", "-").lower())
+        tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
         user: discord.Member = discord.utils.get(interaction.guild.members, name=tournament.winner)
         await tournament_channel.send(f"# The winner is {user.mention}! CONGRATULATIONS! :tada::tada:")
         await lock_all_threads(interaction, tournament_channel)
@@ -84,7 +80,7 @@ class Select_Winner_Menu(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.send_message(f"{self.values[0]} is the winner of this match!")
-        if curr_num_matches == 1:
+        if self.tournament.curr_num_matches == 1:
             self.tournament.set_winner(self.values[0])
             self.tournament.save()
             await run_tournament(self.tournament, interaction)
@@ -92,7 +88,8 @@ class Select_Winner_Menu(discord.ui.Select):
             self.tournament.winners.append(self.values[0])
         
         # Only proceed if all winners have been selected
-        if len(self.tournament.winners) == curr_num_matches and not self.tournament.winners[curr_num_matches-1] == None :
+        tournament_channel = discord.utils.get(interaction.guild.text_channels, id=self.tournament.tournament_channel_id)
+        if len(self.tournament.winners) == self.tournament.curr_num_matches and not self.tournament.winners[self.tournament.curr_num_matches-1] == None :
             view = Next_Round_Confirmation_View(tournament = self.tournament)
             confirmation_message = await tournament_channel.send(f"### All winners have been selected. Would you like to proceed to the next round?", view=view)
             view.conf_message = confirmation_message
@@ -148,19 +145,18 @@ async def set_brackets(interaction, tournament:Tournament, game_size: int, min_g
     # Create tournament channel if round 1
     if tournament.round == 1:
         category = discord.utils.get(guild.categories, name="Tournaments")
-        global tournament_channel
-        tournament_channel = await guild.create_text_channel(tournament.name, category=category)
+        tournament_channel:discord.TextChannel = await guild.create_text_channel("chat-"+tournament.name, category=category)
+        tournament.tournament_channel_id = tournament_channel.id
 
         # Display tournament details embed in tournament channel and pin it
-        embed = main.create_tournament_embed(tournament)
-        inner_embed = await tournament_channel.send(embeds=[embed])
-        await inner_embed.pin()
-        # Save id of inner tournament embed
-        global inner_message_id
-        inner_message_id = inner_embed.id
+        embed = manage.create_tournament_embed(tournament)
+        tournament_channel_msg = await tournament_channel.send(embeds=[embed])
+        await tournament_channel_msg.pin()
+        # Save id of that embed
+        tournament.tournament_channel_msg_id = tournament_channel_msg.id
         
     else:
-        tournament_channel = discord.utils.get(interaction.guild.text_channels, name=tournament.name.replace(" ", "-").lower())
+        tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
 
     # Close all active threads if it's not Round 1
     if not tournament.round == 1:
@@ -191,8 +187,8 @@ async def set_brackets(interaction, tournament:Tournament, game_size: int, min_g
         start_match_view = Start_Match_View(match, tournament)
         await thread.send("### Hello participants! Once all players are ready, press the button below to start the match.", view=start_match_view)
     
-    global curr_num_matches
-    curr_num_matches = len(matches)
+    tournament.curr_num_matches = len(matches)
+    tournament.save()
 
     # Reset round winners list
     tournament.winners = []
