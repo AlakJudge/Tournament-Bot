@@ -70,7 +70,7 @@ class Menu(discord.ui.View):
 # View for the edit options select menu
 class Edit_Options_View(discord.ui.View):
     def __init__(self, tournament):
-        super().__init__(timeout=None)
+        super().__init__()
         self.add_item(Edit_Select_Menu(tournament))
 
 # Drop-down menu to edit tournament
@@ -95,7 +95,7 @@ class Edit_Select_Menu(discord.ui.Select):
                     description="Edit the time of the tournament"
                 )
             ]
-        super().__init__(placeholder="Select a field to edit...", min_values=1, max_values=1, options=options, timeout=None)
+        super().__init__(placeholder="Select a field to edit...", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
         match self.values[0]:

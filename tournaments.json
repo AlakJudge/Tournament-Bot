@@ -2,8 +2,8 @@
     {
         "id": 1,
         "reg_channel": 1287540412956803122,
-        "reg_msg_id": 1323342176679235654,
-        "admin_msg_id": 1323342160581361664,
+        "reg_msg_id": null,
+        "admin_msg_id": 1323350728244334653,
         "tournament_channel_id": null,
         "tournament_channel_msg_id": null,
         "participants_channel_id": null,
