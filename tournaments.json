@@ -12,6 +12,7 @@
         "game": "Monopoly",
         "date": "06/06/2025",
         "time": "10:00 AM",
+        "admin_role": "(1) Tournament Admin",
         "round": 1,
         "players": [
             "davi_mgs",

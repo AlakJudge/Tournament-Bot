@@ -5,7 +5,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 json_file_path = os.path.join(current_dir, "tournaments.json")
 
 class Tournament:
-    def __init__(self, id, name, game, date, time, round=1, 
+    def __init__(self, id, name, game, date, time, admin_role=None, round=1, 
                  reg_channel=None, reg_msg_id=None, admin_msg_id=None, tournament_channel_id=None, 
                  tournament_channel_msg_id=None, participants_channel_id=None, curr_num_matches=None, players=None, winners=None, winner=None):
         self.id = id
@@ -20,6 +20,7 @@ class Tournament:
         self.game = game
         self.date = date
         self.time = time
+        self.admin_role = admin_role
         self.round = round
         self.players = players or []
         self.winners = winners or []
@@ -80,6 +81,7 @@ class Tournament:
                     t.game = self.game
                     t.date = self.date
                     t.time = self.time
+                    t.admin_role = self.admin_role
                     t.round = self.round
                     t.players = self.players
                     t.winners = self.winners
@@ -121,6 +123,7 @@ class Tournament:
                                 game=item["game"],
                                 date=item["date"],
                                 time=item["time"],
+                                admin_role=item["admin_role"],
                                 round=item.get("round", 1),
                                 players=item["players"],
                                 winners=item["winners"],

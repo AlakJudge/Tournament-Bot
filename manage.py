@@ -28,6 +28,10 @@ class Create_Tournament(discord.ui.Modal):
         tournament =  create_tournament(name=name, reg_channel=self.reg_channel, game=game, date=date, time=time)
         tournament_creation_embed = create_tournament_embed(tournament) # Create the embed with the tournament details
 
+        # Assign admin role to creator
+        admin_role = await interaction.guild.create_role(name=f"({tournament.id}) Tournament Admin", permissions=discord.Permissions.none())
+        await interaction.user.add_roles(admin_role)
+
         # Send the response back to the user and display tournament details
         await interaction.response.send_message(embeds=[tournament_creation_embed])
         await interaction.followup.send(f"Tournament **'{name}'** with ID number **'{tournament.id}'** created successfully!", ephemeral=True)
@@ -44,7 +48,6 @@ def create_tournament_embed(tournament:Tournament):
 
 # Create the new tournament and save to file
 def create_tournament(name, reg_channel, game, date, time):
-    
     tournaments = Tournament.load_all_tournaments()
 
     if tournaments:
