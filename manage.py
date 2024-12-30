@@ -202,11 +202,12 @@ class Registration(discord.ui.View):
                 await interaction.response.send_message(f"Registration failed. '{player_name}' is already registered to '{self.tournament.name}'.", ephemeral=True)
                 return
         
+        k_view = kick_view(self.tournament)
         self.tournament.register_player(player_name)
         self.tournament.save() # Save registration to file
         await edit_embed(self.tournament, interaction) # Edit the embed with updated number of players
         await interaction.response.defer()
-        await participants_channel.send(f"{player.mention} registered to '{self.tournament.name}' successfully.")
+        await participants_channel.send(f"{player.mention} registered to '{self.tournament.name}' successfully.", view=k_view)
 
     @discord.ui.button(label="Unregister", style = discord.ButtonStyle.red)
     async def unregister(self, button: discord.ui.Button, interaction: discord.Interaction):
@@ -222,6 +223,32 @@ class Registration(discord.ui.View):
         await edit_embed(self.tournament, interaction)
         await interaction.response.defer()
         await participants_channel.send(f"{player.mention} unregistered from '{self.tournament.name}'.")
+
+# Logic for Kick button
+class kick_view(discord.ui.View):
+    def __init__(self, tournament:Tournament):
+        super().__init__(timeout=None)
+        self.tournament = tournament
+
+    @discord.ui.button(label="Kick", style=discord.ButtonStyle.red)
+    async def kick_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Get the user and participants channel
+        player_name = interaction.user.name
+        player = discord.utils.get(interaction.guild.members, name=player_name)
+        participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
+        # Check if player is still in the server
+        if not player:
+            await interaction.response.send_message("Unable to kick. Player not found.", ephemeral=True)
+            return
+        # Unregister the player from the tournament
+        self.tournament.unregister_player(player_name)
+        self.tournament.save()
+        # Edit the embed with updated number of players
+        await edit_embed(self.tournament, interaction)
+
+        await participants_channel.send(f"{player.mention} has been kicked from '{self.tournament.name}'.")
+        await interaction.response.defer()
+
 
 ######################
 # ADMIN MENU SECTION #
@@ -256,15 +283,21 @@ class Admin(discord.ui.View):
             # Fetch message and embed if it already exists
             reg_msg = await reg_channel.fetch_message(self.tournament.reg_msg_id)
             reg_embed = reg_msg.embeds[0]
+
+            # Edit registration status - Return if Registration is already Open
+            for index, field in enumerate(reg_embed.fields):
+                if field.name == "Registration Status":
+                    if field.value == "Open":
+                        await interaction.response.send_message(f"Registration is already open.", ephemeral=True)
+                        return
+                    reg_embed.set_field_at(index, name=field.name, value="Open", inline=field.inline)
+                    break
+
             # Re-enable buttons
             for item in registration_view.children:
                 if isinstance(item, discord.ui.Button):
                     item.disabled = False
-            # Edit registration status
-            for index, field in enumerate(reg_embed.fields):
-                if field.name == "Registration Status":
-                    reg_embed.set_field_at(index, name=field.name, value="Open", inline=field.inline)
-                    break
+
             # Update the original message to re-enable buttons
             await reg_msg.edit(view=registration_view, embed=reg_embed)
             await interaction.response.send_message(f"Registration opened for '{self.tournament.name}'!", ephemeral=True)
