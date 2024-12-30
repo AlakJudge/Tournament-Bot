@@ -190,32 +190,38 @@ class Registration(discord.ui.View):
     
     @discord.ui.button(label="Register", style = discord.ButtonStyle.green)
     async def register(self, button: discord.ui.Button, interaction: discord.Interaction):
-        player = interaction.user.name # Set the player with their username 
+        # Get user and participants channel
+        player_name = interaction.user.name
+        player = discord.utils.get(interaction.guild.members, name=player_name) 
         participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
 
         # Get tournament details and check if the user is already registered. Stop duplicate register if so.
         tournament:Tournament = Tournament.load_tournament_by_name(self.tournament.name)
         for p in tournament.players:
-            if player == p:
-                await interaction.response.defer()
-                await participants_channel.send(f"Registration failed. '{player}' is already registered to '{self.tournament.name}'.")
+            if player_name == p:
+                await interaction.response.send_message(f"Registration failed. '{player_name}' is already registered to '{self.tournament.name}'.", ephemeral=True)
                 return
         
-        self.tournament.register_player(player)
+        self.tournament.register_player(player_name)
         self.tournament.save() # Save registration to file
         await edit_embed(self.tournament, interaction) # Edit the embed with updated number of players
         await interaction.response.defer()
-        await participants_channel.send(f"'{player}' registered to '{self.tournament.name}' successfully.")
+        await participants_channel.send(f"{player.mention} registered to '{self.tournament.name}' successfully.")
 
     @discord.ui.button(label="Unregister", style = discord.ButtonStyle.red)
     async def unregister(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Get user
+        player_name = interaction.user.name
+        player = discord.utils.get(interaction.guild.members, name=player_name) 
+        # Get participants channel
         participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
-        player = interaction.user.name
-        self.tournament.unregister_player(player)
+        # Unregister player then save change to file
+        self.tournament.unregister_player(player_name)
         self.tournament.save()
+
         await edit_embed(self.tournament, interaction)
         await interaction.response.defer()
-        await participants_channel.send(f"{player} unregistered from '{self.tournament.name}' successfully.")
+        await participants_channel.send(f"{player.mention} unregistered from '{self.tournament.name}'.")
 
 ######################
 # ADMIN MENU SECTION #
