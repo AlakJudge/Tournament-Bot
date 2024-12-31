@@ -23,7 +23,8 @@ async def run_tournament(tournament:Tournament, interaction: discord.Interaction
     else:
         tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
         user: discord.Member = discord.utils.get(interaction.guild.members, name=tournament.winner)
-        await tournament_channel.send(f"# The winner is {user.mention}! CONGRATULATIONS! :tada::tada:")
+        #await tournament_channel.send(f"# The winner is {user.mention}! CONGRATULATIONS! :tada::tada:")
+        await tournament_channel.send(f"# The winner is {user}! CONGRATULATIONS! :tada::tada:")
         await lock_all_threads(interaction, tournament_channel)
 
 # Set the match details for the current round
@@ -177,7 +178,8 @@ async def set_brackets(interaction, tournament:Tournament, game_size: int, min_g
             # Add user to tournament channel
             await tournament_channel.set_permissions(user, view_channel=True, send_messages=True)
             # Add user to match thread
-            await thread.send(f"{user.mention}")
+            # await thread.send(f"{user.mention}")
+            await thread.send(f"{user}")
 
             match.append(players[p_index])
             p_index += 1

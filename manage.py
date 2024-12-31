@@ -232,6 +232,27 @@ class Registration(discord.ui.View):
         await interaction.response.defer()
         await participants_channel.send(f"{player.mention} unregistered from '{self.tournament.name}'.")
 
+# Modal for registration message
+class Reg_Msg_Modal(discord.ui.Modal):
+    def __init__(self, tournament: Tournament):
+        super().__init__(title="Write a Registration Message")
+        self.tournament = tournament
+        self.add_item(discord.ui.InputText(
+            label="Enter a message to go with your Registration", 
+            style=discord.InputTextStyle.paragraph, 
+            placeholder="Message..."))
+
+    async def callback(self, interaction: discord.Interaction):
+        msg = self.children[0].value
+        reg_channel = await interaction.guild.fetch_channel(self.tournament.reg_channel)
+        registration_view = Registration(self.tournament)
+        msg = await reg_channel.send(content=msg, view=registration_view, embed=create_tournament_embed(self.tournament))
+        # Saving id of the registration message
+        self.tournament.reg_msg_id = msg.id
+        self.tournament.save()
+            
+        await interaction.response.send_message(f"Registration opened for '{self.tournament.name}'!", ephemeral=True)
+
 # Logic for Kick button
 class kick_view(discord.ui.View):
     def __init__(self, tournament:Tournament):
@@ -257,7 +278,6 @@ class kick_view(discord.ui.View):
         await participants_channel.send(f"{player.mention} has been kicked from '{self.tournament.name}'.")
         await interaction.response.defer()
 
-
 ######################
 # ADMIN MENU SECTION #
 ######################
@@ -277,20 +297,19 @@ class Admin(discord.ui.View):
         # Check if the user has the admin role or is a server admin
         if not await Admin.check_tournament_admin(interaction, self.tournament):
             return
-
+        
         registration_view = Registration(self.tournament)
         reg_channel = await interaction.guild.fetch_channel(self.tournament.reg_channel)
-
-        if not self.tournament.reg_msg_id:            
-            msg = await reg_channel.send("", view=registration_view, embed=create_tournament_embed(self.tournament))
-            self.tournament.reg_msg_id = msg.id
-            self.tournament.save()
+        
+        if not self.tournament.reg_msg_id:     
+            modal = Reg_Msg_Modal(self.tournament)
+            # msg = await reg_channel.send(content=reg_description, view=registration_view, embed=create_tournament_embed(self.tournament))
+            await interaction.response.send_modal(modal)
             # Create channel for participants logs and management
             category = discord.utils.get(interaction.guild.categories, name="Tournaments")
             participants_channel:discord.TextChannel = await interaction.guild.create_text_channel("participants-"+self.tournament.name, category=category)
             self.tournament.participants_channel_id = participants_channel.id
             
-            await interaction.response.send_message(f"Registration opened for '{self.tournament.name}'!", ephemeral=True)
         else:
             # Fetch message and embed if it already exists
             reg_msg = await reg_channel.fetch_message(self.tournament.reg_msg_id)
@@ -365,7 +384,7 @@ class Admin(discord.ui.View):
     # Check if the user has the admin role or is a server admin
     async def check_tournament_admin(interaction: discord.Interaction, tournament: Tournament):          
         admin_role = discord.utils.get(interaction.guild.roles, name=f"({tournament.id}) Tournament Admin")
-        print(f"{tournament.id} Tournament Admin")
+
         if not interaction.user.guild_permissions.administrator and admin_role not in interaction.user.roles:
             if not interaction.response.is_done():
                 await interaction.response.send_message("Failed. Only Tournament Admins have permission to perform this action.", ephemeral=True)

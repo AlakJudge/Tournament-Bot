@@ -1,12 +1,12 @@
 from typing import Final
 import os
+import sys
 import discord
 from dotenv import load_dotenv
 from manage import *
 from tournament import Tournament
 
 load_dotenv()
-TOKEN: Final[str] = os.getenv("DISCORD_TOKEN")
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -54,10 +54,7 @@ async def admin(ctx: discord.ApplicationContext, id:int = discord.Option(descrip
     tournament: Tournament = next((t for t in tournaments if t.id == int(id)), None) # Go through all tournaments and find the id entered.
 
     if not tournament:
-        if not ctx.response.is_done():
-            await ctx.respond("Tournament not found.", ephemeral=True)
-        else:
-            await ctx.followup.send("Tournament not found.", ephemeral=True)
+        await ctx.respond("Tournament not found.", ephemeral=True)
         return
     
     # Only allow users with this permission to admin tournaments
@@ -65,32 +62,21 @@ async def admin(ctx: discord.ApplicationContext, id:int = discord.Option(descrip
     admin_role: discord.Role = discord.utils.get(ctx.guild.roles, name=tournament.admin_role)
 
     if admin_role not in user.roles and not user.guild_permissions.administrator:
-        if not ctx.response.is_done():
-            await ctx.respond("Failed. Only Tournament Admins have permission to perform this action.", ephemeral=True)
-        else:
-            await ctx.followup.send("Failed. Only Tournament Admins have permission to perform this action.", ephemeral=True)
+        await ctx.respond("Failed. Only Tournament Admins have permission to perform this action.", ephemeral=True)
         return   
         
     view = Admin(tournament)
     embed = view.get_embed()
-    if not ctx.response.is_done():
-        await ctx.respond("", view=view, embed=embed)
-    else:
-        await ctx.followup.send("", view=view, embed=embed)
+    await ctx.respond("", view=view, embed=embed)
 
     admin_msg = await ctx.interaction.original_response()  
     tournament.admin_msg_id = admin_msg.id
     tournament.save()
 
 def main():
-    bot.run(TOKEN)
-    ''' TODO in the future
     ENVIRONMENT = os.getenv("ENVIRONMENT")  # "development" or "production"
-    if ENVIRONMENT == "development":
-        bot.run(DEVELOPMENT_TOKEN)
-    else:
-        bot.run(PRODUCTION_TOKEN)'''
-
+    TOKEN = os.getenv("DEV_TOKEN") if ENVIRONMENT == "dev" else os.getenv("LIVE_TOKEN")
+    bot.run(TOKEN)
 
 if __name__ == '__main__':
-        main()
+    main()
