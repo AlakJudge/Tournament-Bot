@@ -31,6 +31,8 @@ class Create_Tournament(discord.ui.Modal):
         # Assign admin role to creator
         admin_role = await interaction.guild.create_role(name=f"({tournament.id}) Tournament Admin", permissions=discord.Permissions.none())
         await interaction.user.add_roles(admin_role)
+        tournament.admin_role = admin_role.name
+        tournament.save()
 
         # Send the response back to the user and display tournament details
         await interaction.response.send_message(embeds=[tournament_creation_embed])
@@ -56,7 +58,6 @@ def create_tournament(name, reg_channel, game, date, time):
         id = 1
 
     tournament = Tournament(id=id, reg_channel=reg_channel, name=name, game=game, date=date, time=time)
-    tournament.save()
 
     return tournament
 
@@ -173,6 +174,10 @@ class Delete_Confirmation_View(discord.ui.View):
             await admin_message.delete()
             await self.message.delete()
 
+        # Delete tournament role
+        admin_role: discord.Role = discord.utils.get(interaction.guild.roles, name=self.tournament.admin_role)            
+        await admin_role.delete(reason="Tournament deleted")
+
         await interaction.response.send_message(f"Tournament '{self.tournament.name}' Deleted successfully.", ephemeral=True)
 
     @discord.ui.button(label="No", style=discord.ButtonStyle.red)
@@ -269,6 +274,10 @@ class Admin(discord.ui.View):
     # Open Registration button
     @discord.ui.button(label="Open Registration", style = discord.ButtonStyle.green)
     async def open_reg(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Check if the user has the admin role or is a server admin
+        if not await Admin.check_tournament_admin(interaction, self.tournament):
+            return
+
         registration_view = Registration(self.tournament)
         reg_channel = await interaction.guild.fetch_channel(self.tournament.reg_channel)
 
@@ -291,7 +300,7 @@ class Admin(discord.ui.View):
             for index, field in enumerate(reg_embed.fields):
                 if field.name == "Registration Status":
                     if field.value == "Open":
-                        await interaction.response.send_message(f"Registration is already open.", ephemeral=True)
+                        await interaction.followup.send(f"Registration is already open.", ephemeral=True)
                         return
                     reg_embed.set_field_at(index, name=field.name, value="Open", inline=field.inline)
                     break
@@ -303,11 +312,14 @@ class Admin(discord.ui.View):
 
             # Update the original message to re-enable buttons
             await reg_msg.edit(view=registration_view, embed=reg_embed)
-            await interaction.response.send_message(f"Registration opened for '{self.tournament.name}'!", ephemeral=True)
+            await interaction.followup.send(f"Registration opened for '{self.tournament.name}'!", ephemeral=True)
 
     # Close Registration button
     @discord.ui.button(label="Close Registration", style = discord.ButtonStyle.red)
-    async def close_reg(self, button: discord.ui.Button, interaction: discord.Interaction):  
+    async def close_reg(self, button: discord.ui.Button, interaction: discord.Interaction): 
+        # Check if the user has the admin role or is a server admin
+        if not await Admin.check_tournament_admin(interaction, self.tournament):
+            return
         # Fetch registration channel, message and embed, and recreate view
         reg_channel = await interaction.guild.fetch_channel(self.tournament.reg_channel)
         reg_msg = await reg_channel.fetch_message(self.tournament.reg_msg_id)
@@ -329,17 +341,36 @@ class Admin(discord.ui.View):
 
     # Start Tournament button
     @discord.ui.button(label="Start Tournament", style = discord.ButtonStyle.green)
-    async def run_tournament(self, button: discord.ui.Button, interaction: discord.Interaction):   
+    async def run_tournament(self, button: discord.ui.Button, interaction: discord.Interaction):  
+        if not await Admin.check_tournament_admin(interaction, self.tournament):
+            return 
         await run_tournament(self.tournament, interaction)        
 
     # Edit Tournament button
     @discord.ui.button(label="Edit Tournament", style = discord.ButtonStyle.blurple)
     async def edit_tournament(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if not await Admin.check_tournament_admin(interaction, self.tournament):
+            return
         view = Edit_Options_View(self.tournament)
         await interaction.response.send_message("", view=view, ephemeral=True)
 
     # Delete Tournament button
     @discord.ui.button(label="Delete Tournament", style = discord.ButtonStyle.red)
     async def delete_tournament(self,  button: discord.ui.Button, interaction: discord.Interaction):
+        if not await Admin.check_tournament_admin(interaction, self.tournament):
+            return
         view = Delete_Confirmation_View(message=interaction.message, tournament = self.tournament)
         await interaction.response.send_message(f"Are you sure you want to **DELETE** '{self.tournament.name}'?", view=view)
+
+    # Check if the user has the admin role or is a server admin
+    async def check_tournament_admin(interaction: discord.Interaction, tournament: Tournament):          
+        admin_role = discord.utils.get(interaction.guild.roles, name=f"({tournament.id}) Tournament Admin")
+        print(f"{tournament.id} Tournament Admin")
+        if not interaction.user.guild_permissions.administrator and admin_role not in interaction.user.roles:
+            if not interaction.response.is_done():
+                await interaction.response.send_message("Failed. Only Tournament Admins have permission to perform this action.", ephemeral=True)
+            else:
+                # If the response is already sent, use followup
+                await interaction.followup.send("Failed. Only Tournament Admins have permission to perform this action.", ephemeral=True)
+            return False
+        return True
