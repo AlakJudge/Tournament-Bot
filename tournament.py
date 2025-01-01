@@ -5,7 +5,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 json_file_path = os.path.join(current_dir, "tournaments.json")
 
 class Tournament:
-    def __init__(self, id, name, game, date, time, admin_role=None, round=1, 
+    def __init__(self, id, name, game, date, time, admin_role=None, round=0, 
                  reg_channel=None, reg_msg_id=None, admin_msg_id=None, tournament_channel_id=None, 
                  tournament_channel_msg_id=None, participants_channel_id=None, curr_num_matches=None, players=None, winners=None, winner=None):
         self.id = id

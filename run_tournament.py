@@ -13,7 +13,7 @@ async def run_tournament(tournament:Tournament, interaction: discord.Interaction
     if not tournament.winner: 
         details = set_details(tournament)
         await interaction.response.send_modal(details)         
-        await details.wait() 
+        await details.wait()
         # This will run if it's a brand new tournament
         if tournament.round == 1: 
             await set_brackets(interaction, tournament, details.game_size, details.min_games)
@@ -23,43 +23,49 @@ async def run_tournament(tournament:Tournament, interaction: discord.Interaction
     else:
         tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
         user: discord.Member = discord.utils.get(interaction.guild.members, name=tournament.winner)
-        #await tournament_channel.send(f"# The winner is {user.mention}! CONGRATULATIONS! :tada::tada:")
-        await tournament_channel.send(f"# The winner is {user}! CONGRATULATIONS! :tada::tada:")
-        await lock_all_threads(interaction, tournament_channel)
+        await tournament_channel.send(f"# The winner is {user.mention}! CONGRATULATIONS! :tada::tada:")
+        await lock_all_threads(interaction, tournament_channel, tournament.round)
 
 # Set the match details for the current round
 class set_details(discord.ui.Modal):
     def __init__(self, tournament:Tournament) -> None:
         super().__init__(title="Running Details")
+        self.tournament = tournament
 
-        if tournament.round == 1:
+        if tournament.round == 0:
             total_players = len(tournament.players)
         else:
             total_players = len(tournament.winners)
 
-        self.add_item(discord.ui.InputText(label="Max players per game?", placeholder="Cannot be higher than 5."))
+        self.add_item(discord.ui.InputText(label="Max players per game?", placeholder="Cannot be higher than 6."))
         self.add_item(discord.ui.InputText(label="Minimum number of games?", placeholder=f"Cannot be higher than {total_players//2}"))
 
     async def callback(self, interaction: discord.Interaction):
         self.game_size = int(self.children[0].value)
         self.min_games = int(self.children[1].value)
 
+        self.tournament.next_round() # Set round to +1
+        self.tournament.save() # Save to json file
+
         await interaction.response.send_message(f"You've selected:\nGame Size: {self.game_size} -- Min Games: {self.min_games}", ephemeral=True)
 
 class Start_Match_View(discord.ui.View):
     def __init__(self, match, tournament):
-        super().__init__()
+        super().__init__(timeout=None)
         self.match = match 
         self.tournament = tournament
 
     @discord.ui.button(label="Start Match", style=discord.ButtonStyle.green)
     async def start_match(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Check if the user has the admin role or is a server admin
+        if not await manage.Admin.check_tournament_admin(interaction, self.tournament):
+            return
         winner_view = Select_Winner_View(self.tournament, self.match)
         await interaction.response.send_message(f"Match Started! Once it's over, please select the winner below.", view=winner_view)
 
 class Select_Winner_View(discord.ui.View):    
     def __init__(self, tournament, match):
-        super().__init__()
+        super().__init__(timeout=None)
         self.add_item(Select_Winner_Menu(tournament, match))
 
 # Drop-down menu to select the winner of the match
@@ -87,6 +93,7 @@ class Select_Winner_Menu(discord.ui.Select):
             await run_tournament(self.tournament, interaction)
         else:
             self.tournament.winners.append(self.values[0])
+            self.tournament.save()
         
         # Only proceed if all winners have been selected
         tournament_channel = discord.utils.get(interaction.guild.text_channels, id=self.tournament.tournament_channel_id)
@@ -98,19 +105,22 @@ class Select_Winner_Menu(discord.ui.Select):
 # Ask Admin if they'd like to proceed to the next round with a confirmation button
 class Next_Round_Confirmation_View(discord.ui.View):
     def __init__(self, tournament:Tournament, conf_message=None):
-        super().__init__()
+        super().__init__(timeout=None)
         self.conf_message = conf_message
         self.tournament = tournament
 
     @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
     async def confirm(self, button: discord.ui.Button, interaction: discord.Interaction):
-        self.tournament.next_round() # Set round to +1
-        self.tournament.save() # Save to json file
-
+        # Check if the user has the admin role or is a server admin
+        if not await manage.Admin.check_tournament_admin(interaction, self.tournament):
+            return
+        
         await run_tournament(self.tournament, interaction) # Start the next round of the tournament
         await interaction.followup.send(f"## ROUND {self.tournament.round} STARTED!")
         if self.conf_message:
-            await self.conf_message.delete()
+            await self.conf_message.delete() # Delete the confirmation msg
+
+
 
 # Function with the logic to divide players into brackets, create the threads and allocate the players respectively
 async def set_brackets(interaction, tournament:Tournament, game_size: int, min_games: int, t_players:list = None):
@@ -161,15 +171,15 @@ async def set_brackets(interaction, tournament:Tournament, game_size: int, min_g
 
     # Close all active threads if it's not Round 1
     if not tournament.round == 1:
-        await lock_all_threads(interaction, tournament_channel)
+        await lock_all_threads(interaction, tournament_channel, tournament.round-1)
 
     # Distribute players evenly into matches
     for game in games:
         # Create threads for each match
         thread = await tournament_channel.create_thread(name=f"Round {tournament.round} - Game {len(matches)+1}", type=discord.ChannelType.private_thread)
-        await thread.send(f"##  Welcome to your match!")
+        await thread.send(f"## :fire: Welcome to your match! :fire:")
         match = []
-        for _ in range(game):
+        for i in range(game):
             # Get user ID and mention in thread
             user: discord.Member = discord.utils.get(guild.members, name=players[p_index])
             if not user:
@@ -178,8 +188,7 @@ async def set_brackets(interaction, tournament:Tournament, game_size: int, min_g
             # Add user to tournament channel
             await tournament_channel.set_permissions(user, view_channel=True, send_messages=True)
             # Add user to match thread
-            # await thread.send(f"{user.mention}")
-            await thread.send(f"{user}")
+            await thread.send(f"{user.mention}")
 
             match.append(players[p_index])
             p_index += 1
@@ -187,7 +196,11 @@ async def set_brackets(interaction, tournament:Tournament, game_size: int, min_g
         matches.append(match)
 
         start_match_view = Start_Match_View(match, tournament)
-        await thread.send("### Hello participants! Once all players are ready, press the button below to start the match.", view=start_match_view)
+
+        # Fetch admin role to mention
+        admin_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.admin_role)    
+        await thread.send("### Hello participants! Once all players are ready, an Admin will press the button below to start the match.\n"
+                          f"*Tag {admin_role.mention} if you need help with anything*", view=start_match_view)
     
     tournament.curr_num_matches = len(matches)
     tournament.save()
@@ -196,11 +209,11 @@ async def set_brackets(interaction, tournament:Tournament, game_size: int, min_g
     tournament.winners = []
 
 # Lock all current open threads
-async def lock_all_threads(interaction, channel: discord.TextChannel):
+async def lock_all_threads(interaction, channel: discord.TextChannel, round: int):
     
     # Fetch active threads in the channel, iterate and lock each thread
     for thread in channel.threads:
         if not thread.locked: 
             await thread.edit(locked=True)
 
-    await interaction.followup.send(f"All past game threads in {channel.mention} have been locked.")
+    await interaction.followup.send(f"*All Round {round} game threads in {channel.mention} have been locked*")

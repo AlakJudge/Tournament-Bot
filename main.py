@@ -74,8 +74,9 @@ async def admin(ctx: discord.ApplicationContext, id:int = discord.Option(descrip
     tournament.save()
 
 def main():
-    ENVIRONMENT = os.getenv("ENVIRONMENT")  # "development" or "production"
-    TOKEN = os.getenv("DEV_TOKEN") if ENVIRONMENT == "dev" else os.getenv("LIVE_TOKEN")
+    # Fetch the environment status from the env file. Either "dev" or "live"
+    ENVIRONMENT = os.getenv("ENVIRONMENT")  
+    TOKEN = os.getenv("DEV_TOKEN") if ENVIRONMENT == "dev" else os.getenv("LIVE_TOKEN") # 
     bot.run(TOKEN)
 
 if __name__ == '__main__':

@@ -29,7 +29,7 @@ class Create_Tournament(discord.ui.Modal):
         tournament_creation_embed = create_tournament_embed(tournament) # Create the embed with the tournament details
 
         # Assign admin role to creator
-        admin_role = await interaction.guild.create_role(name=f"({tournament.id}) Tournament Admin", permissions=discord.Permissions.none())
+        admin_role = await interaction.guild.create_role(name=f"({tournament.id}) Tournament Admin", permissions=discord.Permissions.none(), mentionable=True)
         await interaction.user.add_roles(admin_role)
         tournament.admin_role = admin_role.name
         tournament.save()

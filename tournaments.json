@@ -2,12 +2,12 @@
     {
         "id": 1,
         "reg_channel": 1287540412956803122,
-        "reg_msg_id": 1323701033477738526,
-        "admin_msg_id": 1323700962912768021,
+        "reg_msg_id": null,
+        "admin_msg_id": 1323731892138414080,
         "tournament_channel_id": null,
         "tournament_channel_msg_id": null,
-        "participants_channel_id": 1323700971762618468,
-        "curr_num_matches": 0,
+        "participants_channel_id": null,
+        "curr_num_matches": 1,
         "name": "Test Tournament",
         "game": "Monopoly",
         "date": "06/06/2025",
@@ -15,11 +15,30 @@
         "admin_role": "(1) Tournament Admin",
         "round": 1,
         "players": [
+            "alakjudge",
             "davi_mgs",
-            "patriciacas",
             "slowrider836",
-            "alakjudge"
+            "patriciacas"
         ],
+        "winners": [],
+        "winner": ""
+    },
+    {
+        "id": 2,
+        "reg_channel": 1286841607576092766,
+        "reg_msg_id": null,
+        "admin_msg_id": null,
+        "tournament_channel_id": null,
+        "tournament_channel_msg_id": null,
+        "participants_channel_id": null,
+        "curr_num_matches": null,
+        "name": "2",
+        "game": "2",
+        "date": "2",
+        "time": "2",
+        "admin_role": "(2) Tournament Admin",
+        "round": 1,
+        "players": [],
         "winners": [],
         "winner": ""
     }
