@@ -210,12 +210,13 @@ class Registration(discord.ui.View):
                 await interaction.response.send_message(f"Registration failed. '{player_name}' is already registered to '{self.tournament.name}'.", ephemeral=True)
                 return
         
-        k_view = kick_view(self.tournament)
+        k_view = kick_view(self.tournament, player_name)
         self.tournament.register_player(player_name)
         self.tournament.save() # Save registration to file
         await edit_embed(self.tournament, interaction) # Edit the embed with updated number of players
-        await interaction.response.defer()
-        await participants_channel.send(f"{player.mention} registered to '{self.tournament.name}' successfully.", view=k_view)
+        await interaction.response.send_message(f"'{player_name}' registered to '{self.tournament.name}' successfully.", ephemeral=True)
+        await participants_channel.send("----------------------------------\n"
+                                        f"{player.mention} registered to '{self.tournament.name}' successfully.", view=k_view)
 
     @discord.ui.button(label="Unregister", style = discord.ButtonStyle.red)
     async def unregister(self, button: discord.ui.Button, interaction: discord.Interaction):
@@ -229,8 +230,9 @@ class Registration(discord.ui.View):
         self.tournament.save()
 
         await edit_embed(self.tournament, interaction)
-        await interaction.response.defer()
-        await participants_channel.send(f"{player.mention} unregistered from '{self.tournament.name}'.")
+        await interaction.response.send_message(f"'{player_name}' unregistered from '{self.tournament.name}'.", ephemeral=True)
+        await participants_channel.send("----------------------------------\n"
+                                        f"{player.mention} unregistered from '{self.tournament.name}'.")
 
 # Modal for registration message
 class Reg_Msg_Modal(discord.ui.Modal):
@@ -238,9 +240,10 @@ class Reg_Msg_Modal(discord.ui.Modal):
         super().__init__(title="Write a Registration Message")
         self.tournament = tournament
         self.add_item(discord.ui.InputText(
-            label="Enter a message to go with your Registration", 
+            label="Enter a Registration Message (optional)", 
             style=discord.InputTextStyle.paragraph, 
-            placeholder="Message..."))
+            placeholder="Message...",
+            required=False))
 
     async def callback(self, interaction: discord.Interaction):
         msg = self.children[0].value
@@ -255,27 +258,28 @@ class Reg_Msg_Modal(discord.ui.Modal):
 
 # Logic for Kick button
 class kick_view(discord.ui.View):
-    def __init__(self, tournament:Tournament):
+    def __init__(self, tournament:Tournament, player_name):
         super().__init__(timeout=None)
         self.tournament = tournament
+        self.player_name = player_name
 
     @discord.ui.button(label="Kick", style=discord.ButtonStyle.red)
     async def kick_button(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Get the user and participants channel
-        player_name = interaction.user.name
-        player = discord.utils.get(interaction.guild.members, name=player_name)
+        player = discord.utils.get(interaction.guild.members, name=self.player_name)
         participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
         # Check if player is still in the server
         if not player:
             await interaction.response.send_message("Unable to kick. Player not found.", ephemeral=True)
             return
         # Unregister the player from the tournament
-        self.tournament.unregister_player(player_name)
+        self.tournament.unregister_player(self.player_name)
         self.tournament.save()
         # Edit the embed with updated number of players
         await edit_embed(self.tournament, interaction)
 
-        await participants_channel.send(f"{player.mention} has been kicked from '{self.tournament.name}'.")
+        await participants_channel.send("----------------------------------\n"
+                                        f"{player.mention} has been kicked from '{self.tournament.name}'.")
         await interaction.response.defer()
 
 ######################
@@ -303,11 +307,16 @@ class Admin(discord.ui.View):
         
         if not self.tournament.reg_msg_id:     
             modal = Reg_Msg_Modal(self.tournament)
-            # msg = await reg_channel.send(content=reg_description, view=registration_view, embed=create_tournament_embed(self.tournament))
             await interaction.response.send_modal(modal)
-            # Create channel for participants logs and management
-            category = discord.utils.get(interaction.guild.categories, name="Tournaments")
-            participants_channel:discord.TextChannel = await interaction.guild.create_text_channel("participants-"+self.tournament.name, category=category)
+            # Create channel for participants logs and management, accessible only to tournament admins
+            admin_role = discord.utils.get(interaction.guild.roles, name=f"({self.tournament.id}) Tournament Admin") # Fetch admin role
+            overwrites = {
+                    interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),  # Deny access to @everyone
+                    admin_role: discord.PermissionOverwrite(view_channel=True)  # Grant access to the admin
+            }
+            overwrites[interaction.guild.me] = discord.PermissionOverwrite(view_channel=True) # Grant access to bot
+            category = discord.utils.get(interaction.guild.categories, name="TOURNAMENTS") # Fetch category
+            participants_channel:discord.TextChannel = await interaction.guild.create_text_channel("👥participants-"+self.tournament.name, category=category, overwrites=overwrites)
             self.tournament.participants_channel_id = participants_channel.id
             
         else:
