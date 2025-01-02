@@ -22,7 +22,7 @@ async def on_ready():
 ##########################
 
 # Slash command to CREATE a new tournament
-@bot.slash_command(name="create", description="Create a new tournament", guild_ids=[1286841607576092763])
+@bot.slash_command(name="create", description="Create a new tournament")
 async def create(
     ctx: discord.ApplicationContext,
     registration_channel: discord.TextChannel = discord.Option(
@@ -45,9 +45,7 @@ async def tournament_list(ctx):
     await ctx.respond(embed=list)
 
 # Slash command to ADMIN a tournament
-@bot.slash_command(name = "admin", 
-                    description = "Administrate a Tournament by entering its ID number.",
-                    guild_ids=[1286841607576092763])
+@bot.slash_command(name = "admin", description = "Administrate a Tournament by entering its ID number.")
 async def admin(ctx: discord.ApplicationContext, id:int = discord.Option(description="Find this ID number by using the tournaments_list command")):
     # Find the tournament
     tournaments = Tournament.load_all_tournaments()
@@ -72,6 +70,33 @@ async def admin(ctx: discord.ApplicationContext, id:int = discord.Option(descrip
     admin_msg = await ctx.interaction.original_response()  
     tournament.admin_msg_id = admin_msg.id
     tournament.save()
+
+# Create tournaments-lounge channel when joining the server
+@bot.event
+async def on_guild_join(guild: discord.Guild):
+    # Check if the bot has permissions to create channels
+    if guild.me.guild_permissions.manage_channels:
+        # Create tournaments category if it doesn't exist
+        tournaments_category_name = "TOURNAMENTS"
+        tournaments_category = discord.utils.get(guild.categories, name=tournaments_category_name)
+        if not tournaments_category:
+            tournaments_category = await guild.create_category(tournaments_category_name)
+        # Create the main tournament admin channel
+        tournaments_lounge_name = "🏆tournaments-lounge"
+        tournaments_lounge = discord.utils.get(guild.text_channels, name=tournaments_lounge_name)
+        if tournaments_lounge: # If channel already exists, edit it and add "use application commands" permission
+            overwrites = tournaments_lounge.overwrites_for(guild.default_role)
+            overwrites.use_application_commands = True
+            await tournaments_lounge.set_permissions(guild.default_role, overwrite=overwrites)
+        else: # If not, create it
+            overwrites = {
+                guild.default_role: discord.PermissionOverwrite(use_application_commands=True)
+            }
+            await guild.create_text_channel(name=tournaments_lounge_name,
+                                            category=tournaments_category,
+                                            overwrites=overwrites)                                           
+    else:
+        print(f"Bot doesn't have permissions to create channels in {guild.name}.")
 
 def main():
     # Fetch the environment status from the env file. Either "dev" or "live"

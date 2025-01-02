@@ -3,9 +3,9 @@
         "id": 1,
         "reg_channel": 1287540412956803122,
         "reg_msg_id": null,
-        "admin_msg_id": 1323731892138414080,
-        "tournament_channel_id": null,
-        "tournament_channel_msg_id": null,
+        "admin_msg_id": 1324171450789138475,
+        "tournament_channel_id": 1324171467675406418,
+        "tournament_channel_msg_id": 1324171468472455221,
         "participants_channel_id": null,
         "curr_num_matches": 1,
         "name": "Test Tournament",
@@ -17,28 +17,30 @@
         "players": [
             "alakjudge",
             "davi_mgs",
-            "slowrider836",
-            "patriciacas"
+            "patriciacas",
+            "slowrider836"
         ],
         "winners": [],
-        "winner": ""
+        "winner": "slowrider836"
     },
     {
         "id": 2,
         "reg_channel": 1286841607576092766,
-        "reg_msg_id": null,
-        "admin_msg_id": null,
-        "tournament_channel_id": null,
-        "tournament_channel_msg_id": null,
-        "participants_channel_id": null,
-        "curr_num_matches": null,
-        "name": "2",
-        "game": "2",
-        "date": "2",
-        "time": "2",
+        "reg_msg_id": 1324165550313832529,
+        "admin_msg_id": 1324167951468728331,
+        "tournament_channel_id": 1324165785932796005,
+        "tournament_channel_msg_id": 1324165786876510229,
+        "participants_channel_id": 1324165542533398550,
+        "curr_num_matches": 1,
+        "name": "test",
+        "game": "32",
+        "date": "3",
+        "time": "3",
         "admin_role": "(2) Tournament Admin",
         "round": 1,
-        "players": [],
+        "players": [
+            "alakjudge"
+        ],
         "winners": [],
         "winner": ""
     }
