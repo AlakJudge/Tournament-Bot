@@ -7,7 +7,7 @@ json_file_path = os.path.join(current_dir, "tournaments.json")
 class Tournament:
     def __init__(self, id, name, game, date, time, admin_role=None, round=0, 
                  reg_channel=None, reg_msg_id=None, admin_msg_id=None, tournament_channel_id=None, 
-                 tournament_channel_msg_id=None, participants_channel_id=None, curr_num_matches=None, players=None, winners=None, winner=None):
+                 tournament_channel_msg_id=None, participants_channel_id=None, curr_num_matches=None, players=None, tournament_winner=None, matches=None):
         self.id = id
         self.reg_channel = reg_channel
         self.reg_msg_id = reg_msg_id
@@ -23,8 +23,8 @@ class Tournament:
         self.admin_role = admin_role
         self.round = round
         self.players = players or []
-        self.winners = winners or []
-        self.winner = winner or ""
+        self.matches = matches or []
+        self.tournament_winner = tournament_winner or ""
     
     # Register new player
     def register_player(self, player):
@@ -56,8 +56,8 @@ class Tournament:
         self.round = self.round + 1
 
     # Set the winner of the tournament
-    def set_winner(self, winner):
-        self.winner = winner
+    def set_tournament_winner(self, tournament_winner):
+        self.tournament_winner = tournament_winner
 
     # Save the tournament details to the json file
     def save(self):
@@ -84,8 +84,8 @@ class Tournament:
                     t.admin_role = self.admin_role
                     t.round = self.round
                     t.players = self.players
-                    t.winners = self.winners
-                    t.winner = self.winner
+                    t.matches = self.matches
+                    t.tournament_winner = self.tournament_winner
                     updated = True
 
         # Append to file if it's a new tournament
@@ -126,8 +126,8 @@ class Tournament:
                                 admin_role=item["admin_role"],
                                 round=item.get("round", 1),
                                 players=item["players"],
-                                winners=item["winners"],
-                                winner=item.get("winner", "")
+                                matches=item["matches"],
+                                tournament_winner=item.get("tournament_winner", "")
                             )
                         )
 

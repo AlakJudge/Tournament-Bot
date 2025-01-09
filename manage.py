@@ -45,7 +45,7 @@ def create_tournament_embed(tournament:Tournament):
     embed.add_field(name="Date", value=tournament.date, inline=False)
     embed.add_field(name="Time", value=tournament.time, inline=False)
     embed.add_field(name="Players Registered", value=len(tournament.players), inline=False)
-    embed.add_field(name="Registration Status", value="Open", inline=False)
+    embed.add_field(name="Registration Status", value="Closed", inline=False)
     return embed
 
 # Create the new tournament and save to file

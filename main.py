@@ -1,10 +1,10 @@
 from typing import Final
 import os
-import sys
 import discord
 from dotenv import load_dotenv
 from manage import *
 from tournament import Tournament
+from typing import Union
 
 load_dotenv()
 
@@ -15,7 +15,7 @@ bot = discord.Bot(intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f"{bot.user} is online")
+    print(f"{bot.user} is online - v1.1")
 
 ##########################
 # SLASH COMMANDS SECTION #
@@ -27,8 +27,15 @@ async def create(
     ctx: discord.ApplicationContext,
     registration_channel: discord.TextChannel = discord.Option(
         discord.TextChannel, # Making sure the command recognizes the input as a channel
-        description="The channel where player registration for the tournament will take place")
-):   
+        description="The channel where player registration for the tournament will take place")):
+    
+    # Only allow users with this permission to admin tournaments
+    user: discord.Member = ctx.guild.get_member(ctx.user.id)
+    organizer_role: discord.Role = discord.utils.get(ctx.guild.roles, name="BGTB Organizer")
+    if organizer_role not in user.roles and not user.guild_permissions.administrator:
+        await ctx.respond("Failed. You must have the 'BGTB Organizer' role to perform this action.", ephemeral=True)
+        return   
+
     # Display the Modal requesting input from the user
     modal = Create_Tournament(reg_channel=registration_channel, title="Create Tournament")
     await ctx.send_modal(modal)
@@ -58,7 +65,6 @@ async def admin(ctx: discord.ApplicationContext, id:int = discord.Option(descrip
     # Only allow users with this permission to admin tournaments
     user: discord.Member = ctx.guild.get_member(ctx.user.id)
     admin_role: discord.Role = discord.utils.get(ctx.guild.roles, name=tournament.admin_role)
-
     if admin_role not in user.roles and not user.guild_permissions.administrator:
         await ctx.respond("Failed. Only Tournament Admins have permission to perform this action.", ephemeral=True)
         return   
@@ -97,6 +103,10 @@ async def on_guild_join(guild: discord.Guild):
                                             overwrites=overwrites)                                           
     else:
         print(f"Bot doesn't have permissions to create channels in {guild.name}.")
+    
+    # Create 'BGTB Organizer' role. Necessary in order to create tournaments
+    await guild.create_role(name="BGTB Organizer", permissions=discord.Permissions(use_application_commands=True))
+    print(f"Created role 'BGTB Organizer' in the '{guild.name}' server.")
 
 def main():
     # Fetch the environment status from the env file. Either "dev" or "live"
