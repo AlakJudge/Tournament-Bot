@@ -15,7 +15,7 @@ bot = discord.Bot(intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f"{bot.user} is online - v1.1")
+    print(f"{bot.user} is online!\nRelease v1.1")
 
 ##########################
 # SLASH COMMANDS SECTION #
