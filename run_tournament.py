@@ -5,6 +5,10 @@ from random import shuffle
 import discord
 from manage import *
 import manage
+import asyncio
+
+# Lock to prevent different data from being edited at the same time and causing conflict
+tournament_lock = asyncio.Lock() 
 
 # Function that controls the flow of the tournament
 async def run_tournament(t:Tournament, interaction: discord.Interaction):
@@ -91,39 +95,40 @@ class Select_Winner_Menu(discord.ui.Select):
         super().__init__(placeholder="Select the winner of the match.", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        # Check if the user has the admin role or is a server admin
-        if not await manage.Admin.check_tournament_admin(interaction, self.tournament):
-            return
-        
-        self.tournament = Tournament.load_tournament_by_name(self.tournament.name) # update tournament info from file
+        async with tournament_lock:
+            # Check if the user has the admin role or is a server admin
+            if not await manage.Admin.check_tournament_admin(interaction, self.tournament):
+                return
+            
+            self.tournament = Tournament.load_tournament_by_name(self.tournament.name) # update tournament info from file
 
-        winner: discord.Member = discord.utils.get(interaction.guild.members, name=self.values[0]) 
-        await interaction.response.send_message(f"## {winner.mention} is the winner of this match!")
+            winner: discord.Member = discord.utils.get(interaction.guild.members, name=self.values[0]) 
+            await interaction.response.send_message(f"## {winner.mention} is the winner of this match!")
 
-        # Iterate through and find the corresponding match
-        match = next(m for m in self.tournament.matches if m["id"] == self.match_id)
-        match["winner"] = winner.name  # Update the winner for the correct match
-        self.tournament.save()
-        
-        if self.tournament.curr_num_matches == 1:
-            self.tournament.set_tournament_winner(winner.name)
+            # Iterate through and find the corresponding match
+            match = next(m for m in self.tournament.matches if m["id"] == self.match_id)
+            match["winner"] = winner.name  # Update the winner for the correct match
             self.tournament.save()
-            await run_tournament(self.tournament, interaction)
-        else:
-            # Get tournament channel object
-            tournament_channel = discord.utils.get(interaction.guild.text_channels, id=self.tournament.tournament_channel_id)
-            # Check if all round winners have been selected
-            if all_winners_selected(self.tournament):
-                await tournament_channel.send("## All winners have been selected. We're ready for the next round! :fire:")
+            
+            if self.tournament.curr_num_matches == 1:
+                self.tournament.set_tournament_winner(winner.name)
+                self.tournament.save()
+                await run_tournament(self.tournament, interaction)
+            else:
+                # Get tournament channel object
+                tournament_channel = discord.utils.get(interaction.guild.text_channels, id=self.tournament.tournament_channel_id)
+                # Check if all round winners have been selected
+                if all_winners_selected(self.tournament):
+                    await tournament_channel.send("## All winners have been selected. We're ready for the next round! :fire:")
 
-        # Disable to prevent multiple winners
-        self.disabled = True
-        if self.view:
-            # Update the view and message
-            for child in self.view.children:
-                if isinstance(child, discord.ui.Select):
-                    child.disabled = True
-            await interaction.message.edit(view=self.view)
+            # Disable to prevent multiple winners
+            self.disabled = True
+            if self.view:
+                # Update the view and message
+                for child in self.view.children:
+                    if isinstance(child, discord.ui.Select):
+                        child.disabled = True
+                await interaction.message.edit(view=self.view)
 
 # Admin buttons available after the tournament has started
 class Tournament_Running_View(discord.ui.View):
@@ -192,9 +197,6 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
 
     # Create tournament channel if round 1
     if tournament.round == 1:
-        category = discord.utils.get(guild.categories, name="TOURNAMENTS")
-        tournament_channel:discord.TextChannel = await guild.create_text_channel("🗨chat-"+tournament.name, category=category)
-        tournament.tournament_channel_id = tournament_channel.id
         # Create view for ongoing tournament buttons
         running_view = Tournament_Running_View(tournament = tournament)
         # Display tournament details embed in tournament channel and pin it
@@ -229,8 +231,10 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
             # Get user ID and mention in thread
             user: discord.Member = discord.utils.get(guild.members, name=players[p_index])
             if not user:
-                await interaction.followup.send(f"User '{players[p_index]}' not found in this server.")
-                return
+                await interaction.followup.send(f"User '{players[p_index]}' not found in this server.", ephemeral=True)
+                players.remove(players[p_index])  # Remove the player from the list
+                continue # skip to next player
+            
             # Add user to tournament channel
             await tournament_channel.set_permissions(user, view_channel=True, send_messages=True)
             # Add user to match thread
@@ -252,7 +256,16 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
 
 # Get winners for all matches in the round
 def get_round_winners(tournament: Tournament):
-    return [match["winner"] for match in tournament.matches if match["winner"]]
+    # Determine the last round number
+    last_round = max(int(match["id"].split('-')[0][1:]) for match in tournament.matches)
+    
+    # Filter matches to get only those from the last round
+    last_round_matches = [match for match in tournament.matches if match["id"].startswith(f"R{last_round}-")]
+    
+    # Extract the winners from those matches
+    winners = [match["winner"] for match in last_round_matches if match["winner"]]
+    
+    return winners
 
 # Add a player to a match while the tournament is running
 async def add_player_to_match(interaction, tournament: Tournament, match_id: int, player: str):
