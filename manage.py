@@ -45,7 +45,7 @@ def create_tournament_embed(tournament:Tournament):
     embed.add_field(name="Date", value=tournament.date, inline=False)
     embed.add_field(name="Time", value=tournament.time, inline=False)
     embed.add_field(name="Players Registered", value=len(tournament.players), inline=False)
-    embed.add_field(name="Registration Status", value="Closed", inline=False)
+    embed.add_field(name="Registration Status", value=tournament.reg_status, inline=False)
     return embed
 
 # Create the new tournament and save to file
@@ -135,11 +135,11 @@ class Editing_Modal(discord.ui.Modal):
                 self.tournament.edit_time(new_value)
 
         await interaction.response.send_message(f"{self.field} updated to {new_value}.", ephemeral=True)
-        await edit_embed(self.tournament, interaction)
+        await edit_reg_and_admin_embeds(self.tournament, interaction)
         self.tournament.save()
 
 # Edit the tournament embeds
-async def edit_embed(tournament:Tournament, interaction):
+async def edit_reg_and_admin_embeds(tournament:Tournament, interaction):
     new_embed = create_tournament_embed(tournament)
 
     # Edit registration embed in the designated registration channel
@@ -213,7 +213,7 @@ class Registration(discord.ui.View):
         k_view = kick_view(self.tournament, player_name)
         self.tournament.register_player(player_name)
         self.tournament.save() # Save registration to file
-        await edit_embed(self.tournament, interaction) # Edit the embed with updated number of players
+        await edit_reg_and_admin_embeds(self.tournament, interaction) # Edit the embed with updated number of players
         await interaction.response.send_message(f"'{player_name}' registered to '{self.tournament.name}' successfully.", ephemeral=True)
         await participants_channel.send("----------------------------------\n"
                                         f"{player.mention} registered to '{self.tournament.name}' successfully.", view=k_view)
@@ -229,16 +229,26 @@ class Registration(discord.ui.View):
         self.tournament.unregister_player(player_name)
         self.tournament.save()
 
-        await edit_embed(self.tournament, interaction)
+        await edit_reg_and_admin_embeds(self.tournament, interaction)
         await interaction.response.send_message(f"'{player_name}' unregistered from '{self.tournament.name}'.", ephemeral=True)
         await participants_channel.send("----------------------------------\n"
                                         f"{player.mention} unregistered from '{self.tournament.name}'.")
+    
+    @discord.ui.button(label="✏️", style = discord.ButtonStyle.blurple)
+    async def edit_reg(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Check if the user has the admin role or is a server admin
+        if not await Admin.check_tournament_admin(interaction, self.tournament):
+            return
+        
+        modal = Reg_Msg_Modal(self.tournament, type="edit")
+        await interaction.response.send_modal(modal)
 
 # Modal for registration message
 class Reg_Msg_Modal(discord.ui.Modal):
-    def __init__(self, tournament: Tournament):
+    def __init__(self, tournament: Tournament, type: str = None):
         super().__init__(title="Write a Registration Message")
         self.tournament = tournament
+        self.type = type
         self.add_item(discord.ui.InputText(
             label="Enter a Registration Message (optional)", 
             style=discord.InputTextStyle.paragraph, 
@@ -246,15 +256,24 @@ class Reg_Msg_Modal(discord.ui.Modal):
             required=False))
 
     async def callback(self, interaction: discord.Interaction):
-        msg = self.children[0].value
+        msg_content = self.children[0].value
         reg_channel = await interaction.guild.fetch_channel(self.tournament.reg_channel)
         registration_view = Registration(self.tournament)
-        msg = await reg_channel.send(content=msg, view=registration_view, embed=create_tournament_embed(self.tournament))
-        # Saving id of the registration message
-        self.tournament.reg_msg_id = msg.id
-        self.tournament.save()
-            
-        await interaction.response.send_message(f"Registration opened for '{self.tournament.name}'!", ephemeral=True)
+        embed = create_tournament_embed(self.tournament)        
+        
+        if self.type == "edit":
+            # Fetch registration message and edit it 
+            old_msg_id = self.tournament.reg_msg_id
+            message = await reg_channel.fetch_message(old_msg_id)
+            await message.edit(content=msg_content, view=registration_view, embed=embed)
+            await interaction.response.send_message(f"Registration message for '{self.tournament.name}' updated successfully.", ephemeral=True)
+        else:
+            # Send a new message
+            msg = await reg_channel.send(content=msg_content, embed=embed, view=registration_view)
+            self.tournament.reg_msg_id = msg.id
+            self.tournament.save()
+
+            await interaction.response.send_message(f"Registration opened for '{self.tournament.name}'!", ephemeral=True)
 
 # Logic for Kick button
 class kick_view(discord.ui.View):
@@ -276,7 +295,7 @@ class kick_view(discord.ui.View):
         self.tournament.unregister_player(self.player_name)
         self.tournament.save()
         # Edit the embed with updated number of players
-        await edit_embed(self.tournament, interaction)
+        await edit_reg_and_admin_embeds(self.tournament, interaction)
 
         await participants_channel.send("----------------------------------\n"
                                         f"{player.mention} has been kicked from '{self.tournament.name}'.")
@@ -301,37 +320,47 @@ class Admin(discord.ui.View):
         # Check if the user has the admin role or is a server admin
         if not await Admin.check_tournament_admin(interaction, self.tournament):
             return
-        
+
         registration_view = Registration(self.tournament)
         reg_channel = await interaction.guild.fetch_channel(self.tournament.reg_channel)
         
         if not self.tournament.reg_msg_id:     
             modal = Reg_Msg_Modal(self.tournament)
             await interaction.response.send_modal(modal)
-            # Create channel for participants logs and management, accessible only to tournament admins
-            admin_role = discord.utils.get(interaction.guild.roles, name=f"({self.tournament.id}) Tournament Admin") # Fetch admin role
-            overwrites = {
-                    interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),  # Deny access to @everyone
-                    admin_role: discord.PermissionOverwrite(view_channel=True)  # Grant access to the admin
-            }
-            overwrites[interaction.guild.me] = discord.PermissionOverwrite(view_channel=True) # Grant access to bot
-            category = discord.utils.get(interaction.guild.categories, name="TOURNAMENTS") # Fetch category
-            participants_channel:discord.TextChannel = await interaction.guild.create_text_channel("👥participants-"+self.tournament.name, category=category, overwrites=overwrites)
-            self.tournament.participants_channel_id = participants_channel.id
+            await modal.wait()
+
+            # Create tournament chat channel
+            if not self.tournament.tournament_channel_id:
+                category = discord.utils.get(interaction.guild.categories, name="TOURNAMENTS")
+                tournament_channel:discord.TextChannel = await interaction.guild.create_text_channel("🗨chat-"+self.tournament.name, category=category)
+                self.tournament.tournament_channel_id = tournament_channel.id
+
+            self.tournament.edit_reg_status("Open")
+            await edit_reg_and_admin_embeds(self.tournament, interaction)
+
+            if not self.tournament.participants_channel_id:
+                # Create channel for participants logs and management, accessible only to tournament admins
+                admin_role = discord.utils.get(interaction.guild.roles, name=f"({self.tournament.id}) Tournament Admin") # Fetch admin role
+                overwrites = {
+                        interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),  # Deny access to @everyone
+                        admin_role: discord.PermissionOverwrite(view_channel=True)  # Grant access to the admin
+                }
+                overwrites[interaction.guild.me] = discord.PermissionOverwrite(view_channel=True) # Grant access to bot
+                category = discord.utils.get(interaction.guild.categories, name="TOURNAMENTS") # Fetch category
+                participants_channel:discord.TextChannel = await interaction.guild.create_text_channel("👥participants-"+self.tournament.name, category=category, overwrites=overwrites)
+                self.tournament.participants_channel_id = participants_channel.id
+           
+            self.tournament.save()
             
         else:
+            # Return if Registration is already Open
+            if self.tournament.reg_status == "Open":
+                await interaction.response.send_message(f"Registration is already open.", ephemeral=True)
+                return
+            
             # Fetch message and embed if it already exists
             reg_msg = await reg_channel.fetch_message(self.tournament.reg_msg_id)
             reg_embed = reg_msg.embeds[0]
-
-            # Edit registration status - Return if Registration is already Open
-            for index, field in enumerate(reg_embed.fields):
-                if field.name == "Registration Status":
-                    if field.value == "Open":
-                        await interaction.followup.send(f"Registration is already open.", ephemeral=True)
-                        return
-                    reg_embed.set_field_at(index, name=field.name, value="Open", inline=field.inline)
-                    break
 
             # Re-enable buttons
             for item in registration_view.children:
@@ -340,7 +369,13 @@ class Admin(discord.ui.View):
 
             # Update the original message to re-enable buttons
             await reg_msg.edit(view=registration_view, embed=reg_embed)
-            await interaction.followup.send(f"Registration opened for '{self.tournament.name}'!", ephemeral=True)
+            await interaction.response.send_message(f"Registration opened for '{self.tournament.name}'!", ephemeral=True)
+
+            # Edit registration status
+            self.tournament.edit_reg_status("Open")
+            await edit_reg_and_admin_embeds(self.tournament, interaction)
+            
+            self.tournament.save()
 
     # Close Registration button
     @discord.ui.button(label="Close Registration", style = discord.ButtonStyle.red)
@@ -348,22 +383,30 @@ class Admin(discord.ui.View):
         # Check if the user has the admin role or is a server admin
         if not await Admin.check_tournament_admin(interaction, self.tournament):
             return
+        
+        # Return if Registration is already Open
+        if self.tournament.reg_status == "Closed":
+            await interaction.response.send_message(f"Registration is already closed.", ephemeral=True)
+            return
+        
         # Fetch registration channel, message and embed, and recreate view
         reg_channel = await interaction.guild.fetch_channel(self.tournament.reg_channel)
         reg_msg = await reg_channel.fetch_message(self.tournament.reg_msg_id)
         reg_embed = reg_msg.embeds[0]
         registration_view = Registration(self.tournament)
+        
         # Disable all buttons in the view
         for item in registration_view.children:
             if isinstance(item, discord.ui.Button):
                 item.disabled = True
-        # Edit registration status
-        for index, field in enumerate(reg_embed.fields):
-            if field.name == "Registration Status":
-                reg_embed.set_field_at(index, name=field.name, value="Closed", inline=field.inline)
-                break
+        
         # Update the original message to disable buttons
         await reg_msg.edit(view=registration_view, embed=reg_embed)
+        
+        # Edit registration status
+        self.tournament.edit_reg_status("Closed")
+        await edit_reg_and_admin_embeds(self.tournament, interaction)
+        self.tournament.save()
 
         await interaction.response.send_message(f"Registration closed for '{self.tournament.name}'!", ephemeral=True)
 
