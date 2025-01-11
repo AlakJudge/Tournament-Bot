@@ -4,7 +4,6 @@ import discord
 from dotenv import load_dotenv
 from manage import *
 from tournament import Tournament
-from typing import Union
 
 load_dotenv()
 
@@ -25,9 +24,11 @@ async def on_ready():
 @bot.slash_command(name="create", description="Create a new tournament")
 async def create(
     ctx: discord.ApplicationContext,
-    registration_channel: discord.TextChannel = discord.Option(
-        discord.TextChannel, # Making sure the command recognizes the input as a channel
-        description="The channel where player registration for the tournament will take place")):
+    registration_channel = discord.Option(
+        discord.abc.GuildChannel, # Allow any channel type
+        description="The channel where player registration for the tournament will take place",
+        channel_types=[discord.ChannelType.text, discord.ChannelType.news]
+        )):
     
     # Only allow users with this permission to admin tournaments
     user: discord.Member = ctx.guild.get_member(ctx.user.id)
@@ -35,6 +36,15 @@ async def create(
     if organizer_role not in user.roles and not user.guild_permissions.administrator:
         await ctx.respond("Failed. You must have the 'BGTB Organizer' role to perform this action.", ephemeral=True)
         return   
+
+    # Set permissions for bot to manage the registration channel
+    overwrites = registration_channel.overwrites_for(ctx.guild.me)
+    overwrites.send_messages = True
+    overwrites.read_messages = True
+    overwrites.read_message_history = True
+    overwrites.manage_messages = True
+    overwrites.view_channel = True
+    await registration_channel.set_permissions(ctx.guild.me, overwrite=overwrites)
 
     # Display the Modal requesting input from the user
     modal = Create_Tournament(reg_channel=registration_channel, title="Create Tournament")
