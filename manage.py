@@ -28,10 +28,15 @@ class Create_Tournament(discord.ui.Modal):
         tournament =  create_tournament(name=name, reg_channel=self.reg_channel, game=game, date=date, time=time)
         tournament_creation_embed = create_tournament_embed(tournament) # Create the embed with the tournament details
 
-        # Assign admin role to creator
+        # Create and assign admin role to creator
         admin_role = await interaction.guild.create_role(name=f"({tournament.id}) Tournament Admin", permissions=discord.Permissions.none(), mentionable=True)
         await interaction.user.add_roles(admin_role)
         tournament.admin_role = admin_role.name
+
+        # Create general role for participants
+        participants_role = await interaction.guild.create_role(name=f"({tournament.id}) Tournament Participant", permissions=discord.Permissions.none())
+        tournament.participants_role = participants_role.name
+
         tournament.save()
 
         # Send the response back to the user and display tournament details
@@ -174,9 +179,11 @@ class Delete_Confirmation_View(discord.ui.View):
             await admin_message.delete()
             await self.message.delete()
 
-        # Delete tournament role
+        # Delete tournament roles
         admin_role: discord.Role = discord.utils.get(interaction.guild.roles, name=self.tournament.admin_role)            
         await admin_role.delete(reason="Tournament deleted")
+        participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=self.tournament.participants_role)            
+        await participants_role.delete(reason="Tournament deleted")
 
         await interaction.response.send_message(f"Tournament '{self.tournament.name}' Deleted successfully.", ephemeral=True)
 
@@ -204,13 +211,17 @@ class Registration(discord.ui.View):
         participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
 
         # Get tournament details and check if the user is already registered. Stop duplicate register if so.
-        tournament:Tournament = Tournament.load_tournament_by_name(self.tournament.name)
-        for p in tournament.players:
+        for p in self.tournament.players:
             if player_name == p:
                 await interaction.response.send_message(f"Registration failed. '{player_name}' is already registered to '{self.tournament.name}'.", ephemeral=True)
                 return
-        
-        k_view = kick_view(self.tournament, player_name)
+            
+        # Assign the participant role to the user
+        if self.tournament.participants_role:
+            participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=self.tournament.participants_role) 
+            await interaction.user.add_roles(participants_role)
+
+        k_view = kick_view(self.tournament, player_name) # Set up view for kick button
         self.tournament.register_player(player_name)
         self.tournament.save() # Save registration to file
         await edit_reg_and_admin_embeds(self.tournament, interaction) # Edit the embed with updated number of players
@@ -225,6 +236,11 @@ class Registration(discord.ui.View):
         player = discord.utils.get(interaction.guild.members, name=player_name) 
         # Get participants channel
         participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
+
+        # Remove participant role from user
+        participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=self.tournament.participants_role) 
+        await interaction.user.remove_roles(participants_role)
+
         # Unregister player then save change to file
         self.tournament.unregister_player(player_name)
         self.tournament.save()
