@@ -119,7 +119,8 @@ class Select_Winner_Menu(discord.ui.Select):
                 tournament_channel = discord.utils.get(interaction.guild.text_channels, id=self.tournament.tournament_channel_id)
                 # Check if all round winners have been selected
                 if all_winners_selected(self.tournament):
-                    await tournament_channel.send("## All winners have been selected. We're ready for the next round! :fire:")
+                    await send_round_winners(interaction, self.tournament)
+                    await tournament_channel.send("## We're ready for the next round! :fire:")
 
             # Disable to prevent multiple winners
             self.disabled = True
@@ -164,6 +165,25 @@ class Tournament_Running_View(discord.ui.View):
         
         # Modal requesting play name and match id. Will add new player to an existing match
         await interaction.response.send_modal(AddPlayerModal(self.tournament))
+
+    @discord.ui.button(label="Show Pending Matches", style=discord.ButtonStyle.blurple)
+    async def show_pending_matches(self, button: discord.ui.Button, interaction: discord.Interaction):        
+        # Fetch tournament channel object
+        tournament_channel = discord.utils.get(interaction.guild.text_channels, id=self.tournament.tournament_channel_id)
+        # Update tournament data
+        tournament: Tournament = Tournament.load_tournament_by_name(self.tournament.name) 
+
+        # Filter matches to get only those from the current round
+        last_round = max(int(match["id"].split('-')[0][1:]) for match in tournament.matches)# Determine the last round number
+        # Filter matches to get only those from the last round
+        last_round_matches = [match for match in tournament.matches if match["id"].startswith(f"R{last_round}-")]
+        # Create a list of pending matches
+        pending_matches_list = "\n".join([f"**{match['id']}**\n{'\n'.join(match['players'])}" for match in last_round_matches if not match["winner"]])
+        # Send the list of pending matches to the tournament channel
+        if pending_matches_list:
+            await tournament_channel.send(f"## **Pending Matches:**\n{pending_matches_list}")
+        else:
+            await interaction.followup.send("## All winners have been selected. No pending matches found.")
         
 # Function with the logic to divide players into brackets, create the threads and allocate the players respectively
 async def set_brackets(interaction: discord.Interaction, tournament:Tournament, game_size: int, min_games: int, t_players:list = None):
@@ -194,8 +214,9 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
     
     p_index = 0
     guild: discord.Guild = interaction.guild
+    tournament_channel = discord.utils.get(guild.text_channels, id=tournament.tournament_channel_id)
 
-    # Create tournament channel if round 1
+    # Create tournament channel message if round 1
     if tournament.round == 1:
         # Create view for ongoing tournament buttons
         running_view = Tournament_Running_View(tournament = tournament)
@@ -208,7 +229,6 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
         tournament.tournament_channel_msg_id = tournament_channel_msg.id
         
     else:
-        tournament_channel = discord.utils.get(guild.text_channels, id=tournament.tournament_channel_id)
         # Close all active threads if it's not Round 1
         await lock_all_threads(interaction, tournament_channel, tournament.round-1)
 
@@ -262,14 +282,33 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
 def get_round_winners(tournament: Tournament):
     # Determine the last round number
     last_round = max(int(match["id"].split('-')[0][1:]) for match in tournament.matches)
-    
     # Filter matches to get only those from the last round
     last_round_matches = [match for match in tournament.matches if match["id"].startswith(f"R{last_round}-")]
-    
     # Extract the winners from those matches
     winners = [match["winner"] for match in last_round_matches if match["winner"]]
     
     return winners
+
+# Send message of all winners from the previous round to tournament channel
+async def send_round_winners(interaction: discord.Interaction, tournament: Tournament):
+    # Fetch tournament channel object
+    tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
+    # Get the winners from the previous round
+    winners = get_round_winners(tournament)
+    winners_users = []
+    for winner in winners:
+        user: discord.Member = discord.utils.get(interaction.guild.members, name=winner)
+        if not user:
+            await interaction.followup.send(f"User '{winner}' not found in this server.", ephemeral=True)
+            winners.remove(winner)  # Remove the player from the list
+        winners_users.append(user) # Add the user to the list
+
+    # Send the list of winners to the tournament channel
+    if winners:
+        await tournament_channel.send(f"## Congratulations to all **Round {tournament.round} Winners! :fire:**\n"
+                                      f"{'\n'.join(f'Game {index+1}: {winner.mention}' for index, winner in enumerate(winners_users))}")
+    else:
+        await interaction.followup.send("## No winners found for the previous round.")
 
 # Add a player to a match while the tournament is running
 async def add_player_to_match(interaction, tournament: Tournament, match_id: int, player: str):
