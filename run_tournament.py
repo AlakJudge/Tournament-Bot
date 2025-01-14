@@ -20,7 +20,7 @@ async def run_tournament(t:Tournament, interaction: discord.Interaction):
         await interaction.response.send_modal(details)         
         await details.wait()
         # This will run if it's a brand new tournament
-        if tournament.round == 1: 
+        if tournament.round == 1:
             await set_brackets(interaction, tournament, details.game_size, details.min_games)
         # This one includes the list of the winners from the previous round
         else:
@@ -217,7 +217,11 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
         # Set match id
         match_id = f"R{tournament.round}-G{index+1}"
         # Create threads for each match
-        thread = await tournament_channel.create_thread(name=f"Round {tournament.round} - Game {index+1}", type=discord.ChannelType.private_thread)
+        thread = await tournament_channel.create_thread(
+            name=f"Round {tournament.round} - Game {index+1}", 
+            type=discord.ChannelType.private_thread,
+            auto_archive_duration = 10080 # Hide after 1 week
+            )
         await thread.send(f"## :fire: Welcome to your match! :fire:")
         
         match = {
