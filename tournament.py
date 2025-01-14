@@ -27,7 +27,11 @@ class Tournament:
         self.players = players or []
         self.matches = matches or []
         self.tournament_winner = tournament_winner or ""
-    
+
+    # Set registration channel
+    def set_reg_channel(self, reg_channel):
+        self.reg_channel = reg_channel
+
     # Register new player
     def register_player(self, player):
         self.players.append(player)

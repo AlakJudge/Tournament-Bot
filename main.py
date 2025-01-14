@@ -87,6 +87,41 @@ async def admin(ctx: discord.ApplicationContext, id:int = discord.Option(descrip
     tournament.admin_msg_id = admin_msg.id
     tournament.save()
 
+# Slash command to set registration channel
+@bot.slash_command(name="set_reg_channel", description="Set the registration channel for your tournament", guild_ids=[1286841607576092763])
+async def set_reg_channel(ctx: discord.ApplicationContext, tournament_id: int, registration_channel = discord.Option(
+        discord.abc.GuildChannel, # Allow any channel type
+        description="The channel where player registration for the tournament will take place",
+        channel_types=[discord.ChannelType.text, discord.ChannelType.news]
+        )):
+    # Get tournament
+    tournaments = Tournament.load_all_tournaments()
+    tournament: Tournament = next((t for t in tournaments if t.id == int(tournament_id)), None)
+    if not tournament:
+        await ctx.respond("Tournament not found.", ephemeral=True)
+        return
+
+    # Only allow users with this permission to admin tournaments
+    user: discord.Member = ctx.guild.get_member(ctx.user.id)
+    admin_role: discord.Role = discord.utils.get(ctx.guild.roles, name=tournament.admin_role)
+    if admin_role not in user.roles and not user.guild_permissions.administrator:
+        await ctx.respond(f"Failed. You must have the '{tournament.admin_role}' role to perform this action.", ephemeral=True)
+        return
+
+    # Set permissions for bot to manage the registration channel
+    overwrites = registration_channel.overwrites_for(ctx.guild.me)
+    overwrites.send_messages = True
+    overwrites.read_messages = True
+    overwrites.read_message_history = True
+    overwrites.manage_messages = True
+    overwrites.view_channel = True
+    await registration_channel.set_permissions(ctx.guild.me, overwrite=overwrites)
+
+    # Set the registration channel and send confirmation
+    tournament.set_reg_channel(registration_channel.id)
+    tournament.save()
+    await ctx.respond(f"Registration channel set to {registration_channel.mention}", ephemeral=True)
+
 # Create tournaments-lounge channel when joining the server
 @bot.event
 async def on_guild_join(guild: discord.Guild):
