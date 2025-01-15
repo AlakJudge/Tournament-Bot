@@ -195,6 +195,15 @@ class Tournament_Running_View(discord.ui.View):
         # Modal to select the match to set the winner for and the name of the winner
         await interaction.response.send_modal(Set_Winner_Modal(self.tournament))
 
+    @discord.ui.button(label="📣", style=discord.ButtonStyle.blurple)
+    async def send_announcement(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Check if the user has the admin role or is a server admin
+        if not await manage.Admin.check_tournament_admin(interaction, self.tournament):
+            return
+        
+        # Modal to collect user announcement, then send it to all active threads
+        await interaction.response.send_modal(Announcement_Modal(self.tournament))
+
         
 # Function with the logic to divide players into brackets, create the threads and allocate the players respectively
 async def set_brackets(interaction: discord.Interaction, tournament:Tournament, game_size: int, min_games: int, t_players:list = None):
@@ -435,3 +444,27 @@ def all_winners_selected(tournament: Tournament):
         if not match["winner"]:
             return False
     return True
+
+# Function to send an announcement message to all active game threads
+async def send_announcement(interaction: discord.Interaction, tournament: Tournament, message: str):
+    # Iterate through and find the match
+    for match in tournament.matches:
+        thread = discord.utils.get(interaction.guild.threads, id=match["thread_id"])
+        if not thread.locked:
+            await thread.send(f"{message}")
+
+# Modal to collect user input(announcement), then send it to all active threads
+class Announcement_Modal(discord.ui.Modal):
+    def __init__(self, tournament: Tournament):
+        super().__init__(title="Send Announcement")
+        self.tournament = tournament
+        self.add_item(discord.ui.InputText(
+            label="Announcement Message", 
+            style=discord.InputTextStyle.paragraph, 
+            placeholder="Message...",
+            required=True))
+
+    async def callback(self, interaction: discord.Interaction):
+        message = self.children[0].value
+        await send_announcement(interaction, self.tournament, message)
+        await interaction.response.send_message(f"Announcement sent to all active game threads.", ephemeral=True)
