@@ -405,26 +405,7 @@ class Admin(discord.ui.View):
             await interaction.response.send_message(f"Registration is already closed.", ephemeral=True)
             return
         
-        # Fetch registration channel, message and embed, and recreate view
-        reg_channel = await interaction.guild.fetch_channel(self.tournament.reg_channel)
-        reg_msg = await reg_channel.fetch_message(self.tournament.reg_msg_id)
-        reg_embed = reg_msg.embeds[0]
-        registration_view = Registration(self.tournament)
-        
-        # Disable all buttons in the view
-        for item in registration_view.children:
-            if isinstance(item, discord.ui.Button):
-                item.disabled = True
-        
-        # Update the original message to disable buttons
-        await reg_msg.edit(view=registration_view, embed=reg_embed)
-        
-        # Edit registration status
-        self.tournament.edit_reg_status("Closed")
-        await edit_reg_and_admin_embeds(self.tournament, interaction)
-        self.tournament.save()
-
-        await interaction.response.send_message(f"Registration closed for '{self.tournament.name}'!", ephemeral=True)
+        await Admin.close_registration(interaction=interaction, tournament=self.tournament)
 
     # Start Tournament button
     @discord.ui.button(label="Start Tournament", style = discord.ButtonStyle.green)
@@ -461,3 +442,30 @@ class Admin(discord.ui.View):
                 await interaction.followup.send("Failed. Only Tournament Admins have permission to perform this action.", ephemeral=True)
             return False
         return True
+    
+
+    # Close registration function
+    async def close_registration(interaction: discord.Interaction, tournament: Tournament):
+        # Fetch registration channel, message and embed, and recreate view
+        reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
+        reg_msg = await reg_channel.fetch_message(tournament.reg_msg_id)
+        reg_embed = reg_msg.embeds[0]
+        registration_view = Registration(tournament)
+        
+        # Disable all buttons in the view
+        for item in registration_view.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+        
+        # Update the original message to disable buttons
+        await reg_msg.edit(view=registration_view, embed=reg_embed)
+        
+        # Edit registration status
+        tournament.edit_reg_status("Closed")
+        await edit_reg_and_admin_embeds(tournament, interaction)
+        tournament.save()
+
+        if interaction.response.is_done():
+            await interaction.followup.send(f"Registration closed for '{tournament.name}'!", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Registration closed for '{tournament.name}'!", ephemeral=True)
