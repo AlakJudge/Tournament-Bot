@@ -1,5 +1,4 @@
 from math import ceil
-
 from tournament import Tournament
 from random import shuffle
 import discord
@@ -21,6 +20,8 @@ async def run_tournament(t:Tournament, interaction: discord.Interaction):
         await details.wait()
         # This will run if it's a brand new tournament
         if tournament.round == 1:
+            if tournament.reg_status == "Open":
+                await manage.Admin.close_registration(interaction, tournament)
             await set_brackets(interaction, tournament, details.game_size, details.min_games)
         # This one includes the list of the winners from the previous round
         else:
