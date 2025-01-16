@@ -5,7 +5,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 json_file_path = os.path.join(current_dir, "tournaments.json")
 
 class Tournament:
-    def __init__(self, id, name, game, date, time, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
+    def __init__(self, id, name, game, date, time, prize, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
                  reg_channel=None, reg_msg_id=None, admin_msg_id=None, tournament_channel_id=None, 
                  tournament_channel_msg_id=None, participants_channel_id=None, curr_num_matches=None, players=None, tournament_winner=None, matches=None):
         self.id = id
@@ -21,6 +21,7 @@ class Tournament:
         self.game = game
         self.date = date
         self.time = time
+        self.prize = prize
         self.admin_role = admin_role
         self.participants_role = participants_role
         self.round = round
@@ -57,6 +58,10 @@ class Tournament:
     def edit_time(self, new_time):
         self.time = new_time
 
+    # Edit tournament prize
+    def edit_prize(self, new_prize):
+        self.prize = new_prize
+
     # Edit registration status
     def edit_reg_status(self, new_status):
         self.reg_status = new_status
@@ -92,6 +97,7 @@ class Tournament:
                     t.game = self.game
                     t.date = self.date
                     t.time = self.time
+                    t.prize = self.prize
                     t.admin_role = self.admin_role
                     t.participants_role = self.participants_role
                     t.round = self.round
@@ -136,6 +142,7 @@ class Tournament:
                                 game=item["game"],
                                 date=item["date"],
                                 time=item["time"],
+                                prize=item["prize"],
                                 admin_role=item["admin_role"],
                                 participants_role=item["participants_role"],
                                 round=item.get("round", 1),

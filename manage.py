@@ -17,6 +17,7 @@ class Create_Tournament(discord.ui.Modal):
         self.add_item(discord.ui.InputText(label="Game", placeholder="e.g. Ticket to Ride, Monopoly, Cluedo, etc."))
         self.add_item(discord.ui.InputText(label="Date", placeholder="Format: DD/MM/YYYY"))
         self.add_item(discord.ui.InputText(label="Time", placeholder="Format: HH:MM AM/PM"))
+        self.add_item(discord.ui.InputText(label="Prize", placeholder="e.g. Expansion, Free Game, etc."))
 
     # Getting the data from the player input modal
     async def callback(self, interaction: discord.Interaction): 
@@ -24,8 +25,9 @@ class Create_Tournament(discord.ui.Modal):
         game = self.children[1].value
         date = self.children[2].value
         time = self.children[3].value
+        prize = self.children[4].value
 
-        tournament =  create_tournament(name=name, reg_channel=self.reg_channel, game=game, date=date, time=time)
+        tournament =  create_tournament(name=name, reg_channel=self.reg_channel, game=game, date=date, time=time, prize=prize)
         tournament_creation_embed = create_tournament_embed(tournament) # Create the embed with the tournament details
 
         # Create and assign admin role to creator
@@ -49,12 +51,13 @@ def create_tournament_embed(tournament:Tournament):
     embed.add_field(name="Game", value=tournament.game, inline=False)
     embed.add_field(name="Date", value=tournament.date, inline=False)
     embed.add_field(name="Time", value=tournament.time, inline=False)
+    embed.add_field(name="Prize", value=tournament.prize, inline=False)
     embed.add_field(name="Players Registered", value=len(tournament.players), inline=False)
     embed.add_field(name="Registration Status", value=tournament.reg_status, inline=False)
     return embed
 
 # Create the new tournament and save to file
-def create_tournament(name, reg_channel, game, date, time):
+def create_tournament(name, reg_channel, game, date, time, prize):
     tournaments = Tournament.load_all_tournaments()
 
     if tournaments:
@@ -62,7 +65,7 @@ def create_tournament(name, reg_channel, game, date, time):
     else:
         id = 1
 
-    tournament = Tournament(id=id, reg_channel=reg_channel, name=name, game=game, date=date, time=time)
+    tournament = Tournament(id=id, reg_channel=reg_channel, name=name, game=game, date=date, time=time, prize=prize)
 
     return tournament
 
@@ -102,6 +105,10 @@ class Edit_Select_Menu(discord.ui.Select):
                 discord.SelectOption(
                     label="Edit Time",
                     description="Edit the time of the tournament"
+                ),
+                discord.SelectOption(
+                    label="Edit Prize",
+                    description="Edit the prize of the tournament"
                 )
             ]
         super().__init__(placeholder="Select a field to edit...", min_values=1, max_values=1, options=options)
@@ -116,6 +123,8 @@ class Edit_Select_Menu(discord.ui.Select):
                 modal =  Editing_Modal(self.tournament, "Date")
             case "Edit Time":
                 modal =  Editing_Modal(self.tournament, "Time")
+            case "Edit Prize":
+                modal =  Editing_Modal(self.tournament, "Prize")
 
         await interaction.response.send_modal(modal)
 
@@ -138,6 +147,8 @@ class Editing_Modal(discord.ui.Modal):
                 self.tournament.edit_date(new_value)
             case "Time":
                 self.tournament.edit_time(new_value)
+            case "Prize":
+                self.tournament.edit_prize(new_value)
 
         await interaction.response.send_message(f"{self.field} updated to {new_value}.", ephemeral=True)
         await edit_reg_and_admin_embeds(self.tournament, interaction)
