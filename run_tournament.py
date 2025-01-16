@@ -155,8 +155,10 @@ class Tournament_Running_View(discord.ui.View):
         msg = await tournament_channel.fetch_message(self.tournament.tournament_channel_msg_id)
         await msg.edit(embed=embed, view=new_view)
 
-        
-        await interaction.followup.send(f"## ROUND {self.tournament.round} STARTED!")
+        if self.tournament.curr_num_matches == 1:
+            await interaction.followup.send(f"## THE FINALS HAVE STARTED! :fire:")
+        else:
+            await interaction.followup.send(f"## ROUND {self.tournament.round} STARTED!")
 
     @discord.ui.button(label="Add Player to Match", style=discord.ButtonStyle.blurple)
     async def add_player(self, button: discord.ui.Button, interaction: discord.Interaction):
@@ -256,9 +258,15 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
     for index, game in enumerate(games):
         # Set match id
         match_id = f"R{tournament.round}-G{index+1}"
-        # Create threads for each match
+        
+        # Create threads for each match and name it final round if it's the last round
+        if len(games) == 1:
+            thread_name = f"🔥Final Round🔥"
+        else:
+            thread_name = f"Round {tournament.round} - Game {index+1}"
+
         thread = await tournament_channel.create_thread(
-            name=f"Round {tournament.round} - Game {index+1}", 
+            name=thread_name, 
             type=discord.ChannelType.private_thread,
             auto_archive_duration = 10080 # Hide after 1 week
             )
