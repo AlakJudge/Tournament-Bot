@@ -422,6 +422,11 @@ class Admin(discord.ui.View):
         view = Edit_Options_View(self.tournament)
         await interaction.response.send_message("", view=view, ephemeral=True)
 
+    # Show list of registered users
+    @discord.ui.button(label="👥", style = discord.ButtonStyle.blurple)
+    async def show_reg(self, button: discord.ui.Button, interaction: discord.Interaction):
+        await Admin.show_registered_users(self.tournament, interaction)
+
     # Delete Tournament button
     @discord.ui.button(label="Delete Tournament", style = discord.ButtonStyle.red)
     async def delete_tournament(self,  button: discord.ui.Button, interaction: discord.Interaction):
@@ -443,7 +448,6 @@ class Admin(discord.ui.View):
             return False
         return True
     
-
     # Close registration function
     async def close_registration(interaction: discord.Interaction, tournament: Tournament):
         # Fetch registration channel, message and embed, and recreate view
@@ -469,3 +473,14 @@ class Admin(discord.ui.View):
             await interaction.followup.send(f"Registration closed for '{tournament.name}'!", ephemeral=True)
         else:
             await interaction.response.send_message(f"Registration closed for '{tournament.name}'!", ephemeral=True)
+
+    # Function to show list of registered users
+    async def show_registered_users(t: Tournament, interaction: discord.Interaction):
+        # Get updated tournament data
+        tournament: Tournament = Tournament.load_tournament_by_name(t.name)
+        # Get the list of registered players
+        players = tournament.players
+        players_list = "\n".join(players)
+        if not players_list:
+            players_list = "*No players registered yet.*"
+        await interaction.response.send_message(f"**Registered Players**\n{players_list}", ephemeral=True) 
