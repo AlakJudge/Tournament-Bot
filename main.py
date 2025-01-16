@@ -2,8 +2,9 @@ from typing import Final
 import os
 import discord
 from dotenv import load_dotenv
-from manage import *
+from t_management import Create_Tournament
 from tournament import Tournament
+from t_admin_menu import T_Admin
 
 load_dotenv()
 
@@ -14,7 +15,7 @@ bot = discord.Bot(intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f"{bot.user} is online - v1.1")
+    print(f"{bot.user} is online - v1.2")
 
 ##########################
 # SLASH COMMANDS SECTION #
@@ -79,7 +80,7 @@ async def admin(ctx: discord.ApplicationContext, id:int = discord.Option(descrip
         await ctx.respond("Failed. Only Tournament Admins have permission to perform this action.", ephemeral=True)
         return   
         
-    view = Admin(tournament)
+    view = T_Admin(tournament)
     embed = view.get_embed()
     await ctx.respond("", view=view, embed=embed)
 
