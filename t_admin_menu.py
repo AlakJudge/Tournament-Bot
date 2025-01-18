@@ -36,7 +36,7 @@ class T_Admin(discord.ui.View):
                 self.tournament.tournament_channel_id = tournament_channel.id
 
             self.tournament.edit_reg_status("Open")
-            await edit_reg_and_admin_embeds(self.tournament, interaction)
+            await update_tournament_embeds(self.tournament, interaction)
 
             if not self.tournament.participants_channel_id:
                 # Create channel for participants logs and management, accessible only to tournament admins
@@ -73,7 +73,7 @@ class T_Admin(discord.ui.View):
 
             # Edit registration status
             self.tournament.edit_reg_status("Open")
-            await edit_reg_and_admin_embeds(self.tournament, interaction)
+            await update_tournament_embeds(self.tournament, interaction)
             
             self.tournament.save()
 
@@ -125,7 +125,15 @@ async def show_registered_users(t: Tournament, interaction: discord.Interaction)
     tournament: Tournament = Tournament.load_tournament_by_name(t.name)
     # Get the list of registered players
     players = tournament.players
+    reserves = tournament.reserves
+    
     players_list = "\n".join(players)
+    reserves_list = "\n".join(reserves)
+
     if not players_list:
         players_list = "*No players registered yet.*"
-    await interaction.response.send_message(f"**Registered Players**\n{players_list}", ephemeral=True) 
+        return
+    await interaction.response.send_message(f"**Registered Players**\n"
+                                            f"{players_list}\n"
+                                            f"**Registered Reserves**\n"
+                                            f"{reserves_list}", ephemeral=True)

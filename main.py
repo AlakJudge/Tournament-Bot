@@ -29,6 +29,10 @@ async def create(
         discord.abc.GuildChannel, # Allow any channel type
         description="The channel where player registration for the tournament will take place",
         channel_types=[discord.ChannelType.text, discord.ChannelType.news]
+        ),
+    player_cap: int = discord.Option(
+        int, # Only allows integers
+        description="The maximum number of players that can register for the tournament (before reserves are added)"
         )):
     
     # Only allow users with this permission to admin tournaments
@@ -48,12 +52,12 @@ async def create(
     await registration_channel.set_permissions(ctx.guild.me, overwrite=overwrites)
 
     # Display the Modal requesting input from the user
-    modal = Create_Tournament(reg_channel=registration_channel, title="Create Tournament")
+    modal = Create_Tournament(reg_channel=registration_channel, title="Create Tournament", player_cap=player_cap)
     await ctx.send_modal(modal)
 
 # Slash command to display a LIST OF ALL ACTIVE TOURNAMENTS
 @bot.slash_command(name="tournaments_list", description="Show a list of all active tournaments and their ID numbers")
-async def tournament_list(ctx):
+async def tournament_list(ctx: discord.ApplicationContext):
     tournaments = Tournament.load_all_tournaments()
     list = discord.Embed(title="List of Tournaments", color=discord.Color.blue())
 
@@ -89,7 +93,7 @@ async def admin(ctx: discord.ApplicationContext, id:int = discord.Option(descrip
     tournament.save()
 
 # Slash command to set registration channel
-@bot.slash_command(name="set_reg_channel", description="Set the registration channel for your tournament", guild_ids=[1286841607576092763])
+@bot.slash_command(name="set_reg_channel", description="Set the registration channel for your tournament")
 async def set_reg_channel(ctx: discord.ApplicationContext, tournament_id: int, registration_channel = discord.Option(
         discord.abc.GuildChannel, # Allow any channel type
         description="The channel where player registration for the tournament will take place",

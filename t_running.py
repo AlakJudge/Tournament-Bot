@@ -3,7 +3,7 @@ import discord
 from math import ceil
 from random import shuffle
 from t_utils import check_tournament_admin
-from t_management import create_tournament_embed
+from t_management import create_tournament_embed, update_tournament_embeds
 from t_registration import close_registration
 from tournament import Tournament
 
@@ -150,8 +150,9 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
 
         # Fetch admin role to mention
         admin_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.admin_role)    
-        await thread.send("### Hello participants! Once all players are ready, an Admin will press the button below to start the match.\n"
+        thread_msg = await thread.send("### Hello participants! Once all players are ready, an Admin will press the button below to start the match.\n"
                           f"*Tag {admin_role.mention} if you need help with anything*", view=start_match_view)
+        await thread_msg.pin()
     
     tournament.curr_num_matches = len(games)
     tournament.save()
@@ -176,6 +177,20 @@ class Start_Match_View(discord.ui.View):
 
         winner_view = Select_Winner_View(self.tournament, self.match_id)
         await interaction.response.send_message(f"Match Started! Once it's over, an Admin will select the winner below.", view=winner_view)
+
+    @discord.ui.button(label="Add Reserve", style=discord.ButtonStyle.blurple)
+    async def add_reserve(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Check if the user has the admin role or is a server admin
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+
+        # Add first reserve in the list to match
+        if self.tournament.reserves:
+            reserve = self.tournament.reserves[0]
+            await add_player_to_match(interaction=interaction, tournament=self.tournament, match_id=self.match_id, player=reserve)
+            await interaction.response.send_message(f"Reserve '{reserve}' added to match successfully.", ephemeral=True)
+        else:
+            await interaction.response.send_message("No reserves available to add.", ephemeral=True)
 
 class Select_Winner_View(discord.ui.View):    
     def __init__(self, tournament, match_id):
@@ -237,6 +252,7 @@ class Select_Winner_Menu(discord.ui.Select):
                         child.disabled = True
                 await interaction.message.edit(view=self.view)
 
+        
 ###################################
 # TOURNAMENT RUNNING VIEW SECTION #
 ###################################
@@ -315,6 +331,14 @@ class Tournament_Running_View(discord.ui.View):
 
 # Add a player to a match while the tournament is running
 async def add_player_to_match(interaction, tournament: Tournament, match_id: int, player: str):
+
+    # Remove from reserve list and add to player list if player is a reserve
+    if player in tournament.reserves:
+        tournament.reserves.pop(tournament.reserves.index(player))
+        tournament.players.append(player)
+        tournament.save()
+        await update_tournament_embeds(tournament, interaction)    
+
     # Get player user object
     user: discord.Member = discord.utils.get(interaction.guild.members, name=player)
     # Iterate through and find the match

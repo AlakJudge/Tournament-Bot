@@ -6,9 +6,10 @@ import discord
 ###############################
 
 class Create_Tournament(discord.ui.Modal):
-    def __init__(self, reg_channel:discord.TextChannel, title:str) -> None:
+    def __init__(self, reg_channel: discord.TextChannel, title: str, player_cap: int) -> None:
         super().__init__(title=title)
         self.reg_channel = reg_channel.id # Saving the ID of the channel picked for registration
+        self.player_cap = player_cap
         self.add_item(discord.ui.InputText(label="Tournament Name"))
         self.add_item(discord.ui.InputText(label="Game", placeholder="e.g. Ticket to Ride, Monopoly, Cluedo, etc."))
         self.add_item(discord.ui.InputText(label="Date", placeholder="Format: DD/MM/YYYY"))
@@ -16,14 +17,14 @@ class Create_Tournament(discord.ui.Modal):
         self.add_item(discord.ui.InputText(label="Prize", placeholder="e.g. Expansion, Free Game, etc."))
 
     # Getting the data from the player input modal
-    async def callback(self, interaction: discord.Interaction): 
+    async def callback(self, interaction: discord.Interaction):
         name = self.children[0].value
         game = self.children[1].value
         date = self.children[2].value
         time = self.children[3].value
         prize = self.children[4].value
 
-        tournament =  create_tournament(name=name, reg_channel=self.reg_channel, game=game, date=date, time=time, prize=prize)
+        tournament =  create_tournament(name=name, reg_channel=self.reg_channel, game=game, date=date, time=time, prize=prize, player_cap=self.player_cap)
         tournament_creation_embed = create_tournament_embed(tournament) # Create the embed with the tournament details
 
         # Create and assign admin role to creator
@@ -48,12 +49,12 @@ def create_tournament_embed(tournament:Tournament):
     embed.add_field(name="Date", value=tournament.date, inline=False)
     embed.add_field(name="Time", value=tournament.time, inline=False)
     embed.add_field(name="Prize", value=tournament.prize, inline=False)
-    embed.add_field(name="Players Registered", value=len(tournament.players), inline=False)
+    embed.add_field(name="Players Registered", value=f"{len(tournament.players)}/{tournament.player_cap} + *{len(tournament.reserves)} Reserves*", inline=False)
     embed.add_field(name="Registration Status", value=tournament.reg_status, inline=False)
     return embed
 
 # Create the new tournament and save to file
-def create_tournament(name, reg_channel, game, date, time, prize):
+def create_tournament(name, reg_channel, game, date, time, prize, player_cap: int):
     tournaments = Tournament.load_all_tournaments()
     # Set the tournament ID
     if tournaments:
@@ -68,7 +69,9 @@ def create_tournament(name, reg_channel, game, date, time, prize):
         game=game, 
         date=date, 
         time=time, 
-        prize=prize)
+        prize=prize,
+        player_cap=player_cap
+        )
 
     return tournament
 
@@ -106,6 +109,10 @@ class Edit_Select_Menu(discord.ui.Select):
                 discord.SelectOption(
                     label="Edit Prize",
                     description="Edit the prize of the tournament"
+                ),
+                discord.SelectOption(
+                    label="Edit Player Cap",
+                    description="Edit the maximum number of players allowed in the tournament"
                 )
             ]
         super().__init__(placeholder="Select a field to edit...", min_values=1, max_values=1, options=options)
@@ -122,6 +129,8 @@ class Edit_Select_Menu(discord.ui.Select):
                 modal =  Editing_Modal(self.tournament, "Time")
             case "Edit Prize":
                 modal =  Editing_Modal(self.tournament, "Prize")
+            case "Edit Player Cap":
+                modal = Editing_Modal(self.tournament, "Player Cap")
 
         await interaction.response.send_modal(modal)
 
@@ -130,7 +139,7 @@ class Editing_Modal(discord.ui.Modal):
     def __init__(self, tournament, field):
         super().__init__(title="Edit Field Value")
         self.add_item(discord.ui.InputText(label=f"New {field}"))
-        self.tournament = tournament
+        self.tournament: Tournament = tournament
         self.field = field
 
     async def callback(self, interaction: discord.Interaction):
@@ -146,13 +155,20 @@ class Editing_Modal(discord.ui.Modal):
                 self.tournament.edit_time(new_value)
             case "Prize":
                 self.tournament.edit_prize(new_value)
+            case "Player Cap":
+                # Check if value is an intenger and send error if not
+                if not new_value.isdigit():
+                    await interaction.response.send_message("Player Cap must be a number.", ephemeral=True)
+                    return
+                self.tournament.edit_player_cap(int(new_value))
 
         await interaction.response.send_message(f"{self.field} updated to {new_value}.", ephemeral=True)
-        await edit_reg_and_admin_embeds(self.tournament, interaction)
+        await update_tournament_embeds(self.tournament, interaction)
         self.tournament.save()
 
 # Edit the tournament embeds
-async def edit_reg_and_admin_embeds(tournament:Tournament, interaction):
+async def update_tournament_embeds(t:Tournament, interaction):
+    tournament: Tournament = Tournament.load_tournament_by_name(t.name)
     new_embed = create_tournament_embed(tournament)
 
     # Edit registration embed in the designated registration channel
@@ -165,6 +181,12 @@ async def edit_reg_and_admin_embeds(tournament:Tournament, interaction):
     tournaments_lounge = discord.utils.get(interaction.guild.text_channels, name="🏆tournaments-lounge")
     admin_message = await tournaments_lounge.fetch_message(tournament.admin_msg_id)
     await admin_message.edit(embed=new_embed)
+
+    # Edit the tournament embed in the tournament channel
+    if tournament.tournament_channel_msg_id:
+        tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
+        tournament_message = await tournament_channel.fetch_message(tournament.tournament_channel_msg_id)
+        await tournament_message.edit(embed=new_embed)
 
 # "Are you sure?" confirmation view for deleting a tournament
 class Delete_Confirmation_View(discord.ui.View):

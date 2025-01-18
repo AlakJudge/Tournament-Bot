@@ -16,20 +16,28 @@ class Registration(discord.ui.View):
         participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
 
         # Get tournament details and check if the user is already registered. Stop duplicate register if so.
-        if player_name in self.tournament.players:
+        if player_name in self.tournament.players or player_name in self.tournament.reserves:
             await interaction.response.send_message(f"Registration failed. '{player_name}' is already registered to '{self.tournament.name}'.", ephemeral=True)
             return
-            
+
         # Assign the participant role to the user
         if self.tournament.participants_role:
             participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=self.tournament.participants_role) 
             await interaction.user.add_roles(participants_role)
 
         k_view = kick_view(self.tournament, player_name) # Set up view for kick button
-        self.tournament.register_player(player_name)
+        
+        # Add as player if under the player cap limit, otherwise add as reserve
+        if len(self.tournament.players) < self.tournament.player_cap:
+            self.tournament.register_player(player_name)
+            await interaction.response.send_message(f"'{player_name}' registered to '{self.tournament.name}' successfully.", ephemeral=True)
+        else:
+            self.tournament.register_reserve(player_name)    
+            await interaction.response.send_message(f"'{player_name}' registered to '{self.tournament.name}' as a **RESERVE** successfully.", ephemeral=True)    
+        
         self.tournament.save() # Save registration to file
-        await edit_reg_and_admin_embeds(self.tournament, interaction) # Edit the embed with updated number of players
-        await interaction.response.send_message(f"'{player_name}' registered to '{self.tournament.name}' successfully.", ephemeral=True)
+        await update_tournament_embeds(self.tournament, interaction) # Edit the embed with updated number of players
+        
         await participants_channel.send(f"----------------------------------\n"
                                         f"{player.mention} registered to '{self.tournament.name}' successfully.", view=k_view)
 
@@ -38,16 +46,30 @@ class Registration(discord.ui.View):
         player_name = interaction.user.name
         player = discord.utils.get(interaction.guild.members, name=player_name) 
         participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
+        tournament_channel = await interaction.guild.fetch_channel(self.tournament.tournament_channel_id)
+
+        # Check if player is registered
+        if player_name not in self.tournament.players and player_name not in self.tournament.reserves:
+            await interaction.response.send_message(f"Failed. '{player_name}' is not registered to '{self.tournament.name}'.", ephemeral=True)
+            return
 
         # Remove participant role from user
         participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=self.tournament.participants_role) 
         await interaction.user.remove_roles(participants_role)
 
         # Unregister player then save change to file
-        self.tournament.unregister_player(player_name)
+        if player_name in self.tournament.players:
+            self.tournament.unregister_player(player_name)
+            if await move_reserve_to_player(self.tournament):
+                # Send message to tournament channel saying who was promoted from reserve to player
+                promoted_player = discord.utils.get(interaction.guild.members, name=self.tournament.players[-1])
+                await tournament_channel.send(f"**{promoted_player.mention} has been promoted from reserve to player!**")
+        else:
+            self.tournament.unregister_reserve(player_name)
+
         self.tournament.save()
 
-        await edit_reg_and_admin_embeds(self.tournament, interaction)
+        await update_tournament_embeds(self.tournament, interaction)
         await interaction.response.send_message(f"'{player_name}' unregistered from '{self.tournament.name}'.", ephemeral=True)
         await participants_channel.send(f"----------------------------------\n"
                                         f"{player.mention} unregistered from '{self.tournament.name}'.")
@@ -101,45 +123,73 @@ class kick_view(discord.ui.View):
 
     @discord.ui.button(label="Kick", style=discord.ButtonStyle.red)
     async def kick_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-        # Get the user and participants channel
+        # Get necessary user and channels
         player = discord.utils.get(interaction.guild.members, name=self.player_name)
         participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
+        tournament_channel = await interaction.guild.fetch_channel(self.tournament.tournament_channel_id)
         # Check if player is still in the server
         if not player:
             await interaction.response.send_message(f"Unable to kick. Player not found.", ephemeral=True)
             return
+        
         # Unregister the player from the tournament
-        self.tournament.unregister_player(self.player_name)
-        self.tournament.save()
-        # Edit the embed with updated number of players
-        await edit_reg_and_admin_embeds(self.tournament, interaction)
+        if self.player_name in self.tournament.players:
+            self.tournament.unregister_player(self.player_name)
+            if move_reserve_to_player(self.tournament):
+                # Send message to tournament channel saying who was promoted from reserve to player
+                promoted_player = discord.utils.get(interaction.guild.members, name=self.tournament.players[-1])
+                await tournament_channel.send(f"**{promoted_player.mention} has been promoted from reserve to player!**")
+        else:
+            self.tournament.unregister_reserve(self.player_name)
 
+        self.tournament.save()
+
+        # Edit the embed with updated number of players
+        await update_tournament_embeds(self.tournament, interaction)
+    
         await participants_channel.send(f"----------------------------------\n"
                                         f"{player.mention} has been kicked from '{self.tournament.name}'.")
         await interaction.response.defer()
 
+        await self.message.delete()
+
 # Close registration function
 async def close_registration(interaction: discord.Interaction, tournament: Tournament):
     # Fetch registration channel, message and embed, and recreate view
-    reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
-    reg_msg = await reg_channel.fetch_message(tournament.reg_msg_id)
-    reg_embed = reg_msg.embeds[0]
-    registration_view = Registration(tournament)
-    
-    # Disable all buttons in the view
-    for item in registration_view.children:
-        if isinstance(item, discord.ui.Button):
-            item.disabled = True
-    
-    # Update the original message to disable buttons
-    await reg_msg.edit(view=registration_view, embed=reg_embed)
+    if not tournament.reg_msg_id:
+        if interaction.response.is_done():
+            await interaction.followup.send("Registration message not found.", ephemeral=True)
+        else:
+            await interaction.response.send_message("Registration message not found.", ephemeral=True)
+    else:
+        reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
+        reg_msg = await reg_channel.fetch_message(tournament.reg_msg_id)
+        reg_embed = reg_msg.embeds[0]
+        registration_view = Registration(tournament)
+        
+        # Disable all buttons in the view
+        for item in registration_view.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+        
+        # Update the original message to disable buttons
+        await reg_msg.edit(view=registration_view, embed=reg_embed)
     
     # Edit registration status
     tournament.edit_reg_status("Closed")
-    await edit_reg_and_admin_embeds(tournament, interaction)
     tournament.save()
-
+    await update_tournament_embeds(tournament, interaction)
+    
     if interaction.response.is_done():
         await interaction.followup.send(f"Registration closed for '{tournament.name}'!", ephemeral=True)
     else:
-        await interaction.response.send_message(f"Registration closed for '{tournament.name}'!", ephemeral=True)#
+        await interaction.response.send_message(f"Registration closed for '{tournament.name}'!", ephemeral=True)
+
+# Function to move the reserve on the first index to the players list and then move all reserves 1 index up.
+async def move_reserve_to_player(tournament: Tournament):
+    if len(tournament.players) < tournament.player_cap and len(tournament.reserves) > 0:
+        tournament.register_player(tournament.reserves[0])
+        tournament.reserves.pop(0)
+        tournament.save()
+        return True
+    return False

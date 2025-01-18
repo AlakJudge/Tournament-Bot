@@ -5,9 +5,9 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 json_file_path = os.path.join(current_dir, "tournaments.json")
 
 class Tournament:
-    def __init__(self, id, name, game, date, time, prize, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
-                 reg_channel=None, reg_msg_id=None, admin_msg_id=None, tournament_channel_id=None, 
-                 tournament_channel_msg_id=None, participants_channel_id=None, curr_num_matches=None, players=None, tournament_winner=None, matches=None):
+    def __init__(self, id, name, game, date, time, prize, player_cap=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
+                 reg_channel=None, reg_msg_id=None, admin_msg_id=None, tournament_channel_id=None, tournament_channel_msg_id=None, 
+                 participants_channel_id=None, curr_num_matches=None, players=None, reserves=None, tournament_winner=None, matches=None):
         self.id = id
         self.reg_channel = reg_channel
         self.reg_msg_id = reg_msg_id
@@ -22,10 +22,12 @@ class Tournament:
         self.date = date
         self.time = time
         self.prize = prize
+        self.player_cap = player_cap
         self.admin_role = admin_role
         self.participants_role = participants_role
         self.round = round
         self.players = players or []
+        self.reserves = reserves or []
         self.matches = matches or []
         self.tournament_winner = tournament_winner or ""
 
@@ -33,14 +35,19 @@ class Tournament:
     def set_reg_channel(self, reg_channel):
         self.reg_channel = reg_channel
 
-    # Register new player
     def register_player(self, player):
         self.players.append(player)
 
-    # Unregister player
     def unregister_player(self, player):
         if player in self.players:
             self.players.remove(player)
+
+    def register_reserve(self, player):
+        self.reserves.append(player)
+
+    def unregister_reserve(self, player):     
+        if player in self.reserves:
+            self.reserves.remove(player)
 
     # Edit tournament name
     def edit_name(self, new_name):
@@ -61,6 +68,10 @@ class Tournament:
     # Edit tournament prize
     def edit_prize(self, new_prize):
         self.prize = new_prize
+
+    # Edit player cap
+    def edit_player_cap(self, new_player_cap):
+        self.player_cap = new_player_cap
 
     # Edit registration status
     def edit_reg_status(self, new_status):
@@ -98,10 +109,12 @@ class Tournament:
                     t.date = self.date
                     t.time = self.time
                     t.prize = self.prize
+                    t.player_cap = self.player_cap
                     t.admin_role = self.admin_role
                     t.participants_role = self.participants_role
                     t.round = self.round
                     t.players = self.players
+                    t.reserves = self.reserves
                     t.matches = self.matches
                     t.tournament_winner = self.tournament_winner
                     updated = True
@@ -143,10 +156,12 @@ class Tournament:
                                 date=item["date"],
                                 time=item["time"],
                                 prize=item["prize"],
+                                player_cap=item.get("player_cap"),
                                 admin_role=item["admin_role"],
                                 participants_role=item["participants_role"],
-                                round=item.get("round", 1),
+                                round=item.get("round", 0),
                                 players=item["players"],
+                                reserves=item["reserves"],
                                 matches=item["matches"],
                                 tournament_winner=item.get("tournament_winner", "")
                             )
