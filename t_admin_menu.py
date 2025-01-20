@@ -1,6 +1,6 @@
 from t_registration import Registration, close_registration
 from tournament import Tournament
-from t_management import *
+from t_management import update_tournament_embeds, create_tournament_embed, Delete_Confirmation_View, Edit_Options_View
 from t_registration import Reg_Msg_Modal
 from t_utils import check_tournament_admin
 from t_running import run_tournament
@@ -20,6 +20,8 @@ class T_Admin(discord.ui.View):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
             return
+        # Update tournament data
+        self.tournament: Tournament = Tournament.load_tournament_by_name(self.tournament.name)
 
         registration_view = Registration(self.tournament)
         reg_channel = await interaction.guild.fetch_channel(self.tournament.reg_channel)
@@ -106,10 +108,28 @@ class T_Admin(discord.ui.View):
         view = Edit_Options_View(self.tournament)
         await interaction.response.send_message("", view=view, ephemeral=True)
 
+    # Add new thread message
+    @discord.ui.button(label="📝", style = discord.ButtonStyle.blurple)
+    async def add_thread_msg(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+        
+        # Send modal to get new thread message
+        modal = Thread_Msg_Modal(self.tournament)
+        await interaction.response.send_modal(modal)
+
     # Show list of registered users
     @discord.ui.button(label="👥", style = discord.ButtonStyle.blurple)
     async def show_reg(self, button: discord.ui.Button, interaction: discord.Interaction):
         await show_registered_users(self.tournament, interaction)
+
+    # Restart the tournament - Delete everything but the registered players/reserves and base info data
+    @discord.ui.button(label="🔄", style = discord.ButtonStyle.blurple)
+    async def restart_tournament(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+        view = Restart_Confirmation_View(message=interaction.message, tournament = self.tournament)
+        await interaction.response.send_message(f"Are you sure you want to **RESTART** '{self.tournament.name}'?", view=view)
 
     # Delete Tournament button
     @discord.ui.button(label="Delete Tournament", style = discord.ButtonStyle.red)
@@ -118,6 +138,26 @@ class T_Admin(discord.ui.View):
             return
         view = Delete_Confirmation_View(message=interaction.message, tournament = self.tournament)
         await interaction.response.send_message(f"Are you sure you want to **DELETE** '{self.tournament.name}'?", view=view)
+
+# Modal to get new thread message
+class Thread_Msg_Modal(discord.ui.Modal):
+    def __init__(self, tournament: Tournament):
+        super().__init__(title="Write a new Game-Thread-Intro Message")
+        self.tournament = tournament
+        self.type = type
+        self.add_item(discord.ui.InputText(
+            label="New introduction message for Game Threads", 
+            style=discord.InputTextStyle.paragraph, 
+            placeholder="### Hello participants! Rest of message...",
+            required=True))
+
+    async def callback(self, interaction: discord.Interaction):
+        self.tournament: Tournament = Tournament.load_tournament_by_name(self.tournament.name) # Update tournament data
+        msg_content = self.children[0].value
+        self.tournament.edit_thread_msg(msg_content)
+        self.tournament.save()
+
+        await interaction.response.send_message(f"Game-Tread Message Updated!", ephemeral=True)
 
 # Function to show list of registered users
 async def show_registered_users(t: Tournament, interaction: discord.Interaction):
@@ -137,3 +177,60 @@ async def show_registered_users(t: Tournament, interaction: discord.Interaction)
                                             f"{players_list}\n"
                                             f"**Registered Reserves**\n"
                                             f"{reserves_list}", ephemeral=True)
+
+class Restart_Confirmation_View(discord.ui.View):
+    def __init__(self, message, tournament:Tournament):
+        super().__init__()
+        self.message = message
+        self.tournament = tournament
+
+    @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
+    async def confirm(self, button: discord.ui.Button,interaction: discord.Interaction):
+        
+        await restart_tournament(self.tournament, interaction)
+        # Delete yes/no buttons view
+        await self.message.delete()
+        
+    @discord.ui.button(label="No", style=discord.ButtonStyle.red)
+    async def cancel(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # If "No" is clicked, cancel the action
+        await self.message.delete()
+        await interaction.response.send_message("Action cancelled.", ephemeral=True)
+
+async def restart_tournament(tournament:Tournament, interaction: discord.Interaction):
+    # Update tournament data
+    tournament: Tournament = Tournament.load_tournament_by_name(tournament.name)
+    
+    await interaction.response.defer()
+
+    # Close registration if it is open
+    if tournament.reg_status == "Open":
+        await close_registration(interaction, tournament)
+    await update_tournament_embeds(tournament, interaction)
+
+    # Delete all messages and channels related to the tournament, if they exist.
+    # Except the admin message and reg channel ID
+    if tournament.reg_msg_id:
+        reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
+        message = await reg_channel.fetch_message(tournament.reg_msg_id)
+        await message.delete()
+    if tournament.tournament_channel_msg_id and tournament.tournament_channel_id:
+        tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
+        message = await tournament_channel.fetch_message(tournament.tournament_channel_msg_id)
+        await message.delete()
+        await tournament_channel.delete()
+    elif tournament.tournament_channel_id:
+        tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
+        await tournament_channel.delete()
+    if tournament.participants_channel_id:
+        participants_channel = await interaction.guild.fetch_channel(tournament.participants_channel_id)
+        await participants_channel.delete()
+
+    # Reset tournament data
+    tournament.restart()
+    tournament.save()
+
+    if interaction.response.is_done():
+        await interaction.followup.send(f"Tournament '{tournament.name}' Restarted successfully.", ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Tournament '{tournament.name}' Restarted successfully.", ephemeral=True)

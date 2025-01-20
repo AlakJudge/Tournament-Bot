@@ -10,6 +10,10 @@ from tournament import Tournament
 # Lock to prevent different data from being edited at the same time and causing conflict
 tournament_lock = asyncio.Lock() 
 
+
+
+
+
 #####################
 # RUN SETUP SECTION #
 #####################
@@ -128,7 +132,7 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
             "id": match_id,
             "players": [],
             "winner": None,
-            "thread_id": thread.id
+            "thread_id": thread.id,
         }
 
         for _ in range(game):
@@ -150,12 +154,22 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
 
         # Fetch admin role to mention
         admin_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.admin_role)    
-        thread_msg = await thread.send("### Hello participants! Once all players are ready, an Admin will press the button below to start the match.\n"
-                          f"*Tag {admin_role.mention} if you need help with anything*", view=start_match_view)
-        await thread_msg.pin()
+        
+        if not tournament.thread_msg:
+            await thread.send("### Hello participants! Please, be respectful and respect the tournament rules!")
+        else:
+            await thread.send(tournament.thread_msg)
+        
+        start_match_view = await thread.send(f"Once all players are ready, an Admin will press the button below to start the match.\n"
+                                            f"*Tag {admin_role.mention} if you need help with anything*", view=start_match_view)
+        await start_match_view.pin()
     
     tournament.curr_num_matches = len(games)
     tournament.save()
+
+
+
+
 
 ##############################
 # INSIDE GAME THREAD SECTION #
@@ -191,6 +205,22 @@ class Start_Match_View(discord.ui.View):
             await interaction.response.send_message(f"Reserve '{reserve}' added to match successfully.", ephemeral=True)
         else:
             await interaction.response.send_message("No reserves available to add.", ephemeral=True)
+
+    @discord.ui.button(label="Ready Check", style=discord.ButtonStyle.blurple)
+    async def ready_up(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Check if the user has the admin role or is a server admin
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+           
+        view, thread, match_players = await ready_check(interaction, self.tournament, self.match_id)
+        
+        if interaction.response.is_done():
+            await interaction.followup.send("Ready check sent to all players.", ephemeral=True)
+        else:            
+            await interaction.response.send_message("Ready check sent to all players.", ephemeral=True)
+
+        await not_ready_forfeit(interaction, view, thread, match_players)
+
 
 class Select_Winner_View(discord.ui.View):    
     def __init__(self, tournament, match_id):
@@ -252,7 +282,59 @@ class Select_Winner_Menu(discord.ui.Select):
                         child.disabled = True
                 await interaction.message.edit(view=self.view)
 
+class Ready_Check_View(discord.ui.View):    
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(Ready_Check_Button())
+
+# Allow players to show they're ready to start the match
+class Ready_Check_Button(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Ready ✅", style=discord.ButtonStyle.green)
+        self.clicked_users = set()
+
+    async def callback(self, interaction: discord.Interaction):
+        user_name = interaction.user.name
+
+        # Check if the user has already clicked the button
+        if user_name in self.clicked_users:
+            await interaction.response.send_message("You have already marked yourself as ready.", ephemeral=True)
+        else:
+            self.clicked_users.add(user_name)
+            await interaction.response.send_message(f"{interaction.user.mention} is ready!")
+
+async def ready_check(interaction: discord.Interaction, tournament: Tournament, match_id: int):
+    # Find the match, thread, and match players
+    match = next(m for m in tournament.matches if m["id"] == match_id)
+    thread = discord.utils.get(interaction.guild.threads, id=match["thread_id"])
+    match_players = [player for player in match["players"]]
+    
+    view = Ready_Check_View()
+    await thread.send(f"## Are you ready to start? @everyone", view=view, allowed_mentions=discord.AllowedMentions(everyone=True))
+
+    return view, thread, match_players
         
+async def not_ready_forfeit(interaction: discord.Interaction, view: Ready_Check_View, thread: discord.Thread, match_players: list):
+    # Wait for 5 minutes
+    await asyncio.sleep(300)
+
+    # Tag players who did not click the ready button
+    not_ready_players = [player for player in match_players if player not in view.children[0].clicked_users]
+
+    # Convert player names to user objects
+    not_ready_players = [discord.utils.get(interaction.guild.members, name=player) for player in not_ready_players]
+
+    # Send message to players who did not click the ready button
+    if not_ready_players:
+        not_ready_mentions = " ".join(player.mention for player in not_ready_players)
+        await thread.send(f"## The following players are not ready: {not_ready_mentions}\n### You have 5 minutes to ready up, or forfeit the match.") 
+    else:
+        await thread.send(f"## All players are ready! Let's start the match!")
+
+
+
+
+
 ###################################
 # TOURNAMENT RUNNING VIEW SECTION #
 ###################################
@@ -294,23 +376,6 @@ class Tournament_Running_View(discord.ui.View):
         # Modal requesting play name and match id. Will add new player to an existing match
         await interaction.response.send_modal(Add_Player_Modal(self.tournament))
 
-    @discord.ui.button(label="Show Pending Matches", style=discord.ButtonStyle.blurple)
-    async def show_pending_matches(self, button: discord.ui.Button, interaction: discord.Interaction):        
-        # Update tournament data
-        tournament: Tournament = Tournament.load_tournament_by_name(self.tournament.name) 
-
-        # Filter matches to get only those from the current round
-        last_round = max(int(match["id"].split('-')[0][1:]) for match in tournament.matches)# Determine the last round number
-        # Filter matches to get only those from the last round
-        last_round_matches = [match for match in tournament.matches if match["id"].startswith(f"R{last_round}-")]
-        # Create a list of pending matches
-        pending_matches_list = "\n".join([f"**{match['id']}**\n{'\n'.join(match['players'])}" for match in last_round_matches if not match["winner"]])
-        # Send the list of pending matches to the tournament channel
-        if pending_matches_list:
-            await interaction.response.send_message(f"## **Pending Matches:**\n{pending_matches_list}")
-        else:
-            await interaction.response.send_message("## All winners have been selected. No pending matches found.")
-
     @discord.ui.button(label="Set Match Winner", style=discord.ButtonStyle.blurple)
     async def set_winner(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
@@ -328,6 +393,47 @@ class Tournament_Running_View(discord.ui.View):
         
         # Modal to collect user announcement, then send it to all active threads
         await interaction.response.send_modal(Announcement_Modal(self.tournament))
+
+    @discord.ui.button(label="✅", style=discord.ButtonStyle.blurple)
+    async def ready_all(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Check if the user has the admin role or is a server admin
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+
+        # List to store view, thread, and match_players for each match
+        ready_check_data = []   
+
+        for match in self.tournament.matches:
+            thread = discord.utils.get(interaction.guild.threads, id=match["thread_id"])
+            if not thread.locked:
+                view, thread, match_players = await ready_check(interaction, self.tournament, match["id"])
+                ready_check_data.append((view, thread, match_players))
+                
+        if interaction.response.is_done():
+            await interaction.followup.send("Ready check sent to all players.", ephemeral=True)
+        else:
+            await interaction.response.send_message("Ready check sent to all players.", ephemeral=True)
+
+        # Wait 5 mins, then tag all players not ready yet in each active thread
+        for view, thread, match_players in ready_check_data:
+            await not_ready_forfeit(interaction, view, thread, match_players)
+
+    @discord.ui.button(label="Show Pending Matches", style=discord.ButtonStyle.blurple)
+    async def show_pending_matches(self, button: discord.ui.Button, interaction: discord.Interaction):        
+        # Update tournament data
+        tournament: Tournament = Tournament.load_tournament_by_name(self.tournament.name) 
+
+        # Filter matches to get only those from the current round
+        last_round = max(int(match["id"].split('-')[0][1:]) for match in tournament.matches)# Determine the last round number
+        # Filter matches to get only those from the last round
+        last_round_matches = [match for match in tournament.matches if match["id"].startswith(f"R{last_round}-")]
+        # Create a list of pending matches
+        pending_matches_list = "\n".join([f"**{match['id']}**\n{'\n'.join(match['players'])}" for match in last_round_matches if not match["winner"]])
+        # Send the list of pending matches to the tournament channel
+        if pending_matches_list:
+            await interaction.response.send_message(f"## **Pending Matches:**\n{pending_matches_list}")
+        else:
+            await interaction.response.send_message("## All winners have been selected. No pending matches found.")
 
 # Add a player to a match while the tournament is running
 async def add_player_to_match(interaction, tournament: Tournament, match_id: int, player: str):
@@ -419,6 +525,10 @@ class Set_Winner_Modal(discord.ui.Modal):
                 await interaction.response.send_message(f"{player} set as {match_id} winner.", ephemeral=True)
         else:
             await interaction.response.send_message(f"Failed to set {player} as {match_id} winner.", ephemeral=True)
+
+
+
+
 
 ###############################
 # AUXILIARY FUNCTIONS SECTION #
