@@ -14,3 +14,11 @@ async def check_tournament_admin(interaction: discord.Interaction, tournament: T
         return False
     return True
 
+# Function to move the reserve on the first index to the players list and then move all reserves 1 index up.
+async def move_reserve_to_player(tournament: Tournament):
+    if len(tournament.players) < tournament.player_cap and len(tournament.reserves) > 0:
+        tournament.register_player(tournament.reserves[0])
+        tournament.reserves.pop(0)
+        tournament.save()
+        return True
+    return False

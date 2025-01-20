@@ -1,4 +1,5 @@
 from tournament import Tournament
+from t_utils import move_reserve_to_player
 import discord
 
 ###############################
@@ -160,7 +161,18 @@ class Editing_Modal(discord.ui.Modal):
                 if not new_value.isdigit():
                     await interaction.response.send_message("Player Cap must be a number.", ephemeral=True)
                     return
+                # Get difference to check if it's possible to promote a reserve to player, and how many
+                difference = int(new_value) - self.tournament.player_cap 
+                # Overwrite the player cap
                 self.tournament.edit_player_cap(int(new_value))
+                
+                for _ in range(difference):
+                    # Promote reserves to players
+                    if await move_reserve_to_player(self.tournament):
+                        promoted_player = discord.utils.get(interaction.guild.members, name=self.tournament.players[-1])
+                        # Send message to tournament channel saying who was promoted from reserve to player
+                        tournament_channel = await interaction.guild.fetch_channel(self.tournament.tournament_channel_id)
+                        await tournament_channel.send(f"**{promoted_player.mention} has been promoted from reserve to player!**")
 
         await interaction.response.send_message(f"{self.field} updated to {new_value}.", ephemeral=True)
         await update_tournament_embeds(self.tournament, interaction)
