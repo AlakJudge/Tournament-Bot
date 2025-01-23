@@ -4,55 +4,29 @@
         "reg_channel": 1327440684294344705,
         "reg_msg_id": null,
         "reg_status": "Closed",
-        "admin_msg_id": 1329596429878038571,
-        "tournament_channel_id": 1328539076693069845,
-        "tournament_channel_msg_id": 1329596444595716117,
-        "participants_channel_id": 1328535269284253750,
-        "curr_num_matches": 1,
+        "admin_msg_id": 1330718609533702254,
+        "tournament_channel_id": null,
+        "tournament_channel_msg_id": null,
+        "participants_channel_id": null,
+        "curr_num_matches": 0,
         "name": "Test Tournament",
         "game": "Monopoly",
         "date": "06/06/2025",
         "time": "10:00 AM",
         "prize": "fgf",
+        "player_cap": 5,
+        "thread_msg": null,
         "admin_role": "(1) Tournament Admin",
         "participants_role": "(1) Tournament Participant",
-        "round": 2,
+        "round": 0,
         "players": [
-            "patriciacas",
             "slowrider836",
             "davi_mgs",
+            "patriciacas",
             "alakjudge"
         ],
-        "matches": [
-            {
-                "id": "R1-G1",
-                "players": [
-                    "patriciacas",
-                    "slowrider836",
-                    "alakjudge"
-                ],
-                "winner": "alakjudge",
-                "thread_id": 1329596447678660751
-            },
-            {
-                "id": "R1-G2",
-                "players": [
-                    "davi_mgs",
-                    "alakjudge"
-                ],
-                "winner": "davi_mgs",
-                "thread_id": 1329596455345979414
-            },
-            {
-                "id": "R2-G1",
-                "players": [
-                    "davi_mgs",
-                    "alakjudge"
-                ],
-                "winner": "alakjudge",
-                "thread_id": 1329596774406426715
-            }
-        ],
-        "tournament_winner": "alakjudge"
+        "reserves": [],
+        "matches": [],
+        "tournament_winner": ""
     }
 ]
