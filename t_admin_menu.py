@@ -15,7 +15,7 @@ class T_Admin(discord.ui.View):
         return create_tournament_embed(self.tournament)
     
     # Open Registration button
-    @discord.ui.button(label="Open Registration", style = discord.ButtonStyle.green)
+    @discord.ui.button(label="🏁 Open Registration", style = discord.ButtonStyle.green)
     async def open_reg(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -37,9 +37,6 @@ class T_Admin(discord.ui.View):
                 tournament_channel:discord.TextChannel = await interaction.guild.create_text_channel("🗨chat-"+self.tournament.name, category=category)
                 self.tournament.tournament_channel_id = tournament_channel.id
 
-            self.tournament.edit_reg_status("Open")
-            await update_tournament_embeds(self.tournament, interaction)
-
             if not self.tournament.participants_channel_id:
                 # Create channel for participants logs and management, accessible only to tournament admins
                 admin_role = discord.utils.get(interaction.guild.roles, name=f"({self.tournament.id}) Tournament Admin") # Fetch admin role
@@ -51,8 +48,10 @@ class T_Admin(discord.ui.View):
                 category = discord.utils.get(interaction.guild.categories, name="TOURNAMENTS") # Fetch category
                 participants_channel:discord.TextChannel = await interaction.guild.create_text_channel("👥participants-"+self.tournament.name, category=category, overwrites=overwrites)
                 self.tournament.participants_channel_id = participants_channel.id
-           
+            
+            self.tournament.edit_reg_status("Open")
             self.tournament.save()
+            await update_tournament_embeds(self.tournament, interaction)
             
         else:
             # Return if Registration is already Open
@@ -69,18 +68,18 @@ class T_Admin(discord.ui.View):
                 if isinstance(item, discord.ui.Button):
                     item.disabled = False
 
+            # Edit registration status
+            self.tournament.edit_reg_status("Open")
+            self.tournament.save()
+
             # Update the original message to re-enable buttons
             await reg_msg.edit(view=registration_view, embed=reg_embed)
             await interaction.response.send_message(f"Registration opened for '{self.tournament.name}'!", ephemeral=True)
 
-            # Edit registration status
-            self.tournament.edit_reg_status("Open")
-            await update_tournament_embeds(self.tournament, interaction)
-            
-            self.tournament.save()
+            await update_tournament_embeds(self.tournament, interaction)       
 
     # Close Registration button
-    @discord.ui.button(label="Close Registration", style = discord.ButtonStyle.red)
+    @discord.ui.button(label="🛑 Close Registration", style = discord.ButtonStyle.red)
     async def close_reg(self, button: discord.ui.Button, interaction: discord.Interaction): 
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -94,14 +93,14 @@ class T_Admin(discord.ui.View):
         await close_registration(interaction=interaction, tournament=self.tournament)
 
     # Start Tournament button
-    @discord.ui.button(label="Start Tournament", style = discord.ButtonStyle.green)
+    @discord.ui.button(label="🟢 Start Tournament", style = discord.ButtonStyle.green)
     async def t_run(self, button: discord.ui.Button, interaction: discord.Interaction):  
         if not await check_tournament_admin(interaction, self.tournament):
             return 
         await run_tournament(self.tournament, interaction)        
 
     # Edit Tournament button
-    @discord.ui.button(label="Edit Tournament", style = discord.ButtonStyle.blurple)
+    @discord.ui.button(label="📄 Edit Tournament Info", style = discord.ButtonStyle.blurple)
     async def edit_tournament(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -109,7 +108,7 @@ class T_Admin(discord.ui.View):
         await interaction.response.send_message("", view=view, ephemeral=True)
 
     # Add new thread message
-    @discord.ui.button(label="📝", style = discord.ButtonStyle.blurple)
+    @discord.ui.button(label="📝 Edit Game Thread Intro", style = discord.ButtonStyle.blurple)
     async def add_thread_msg(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -119,12 +118,12 @@ class T_Admin(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     # Show list of registered users
-    @discord.ui.button(label="👥", style = discord.ButtonStyle.blurple)
+    @discord.ui.button(label="👥 Player List", style = discord.ButtonStyle.blurple)
     async def show_reg(self, button: discord.ui.Button, interaction: discord.Interaction):
         await show_registered_users(self.tournament, interaction)
 
     # Restart the tournament - Delete everything but the registered players/reserves and base info data
-    @discord.ui.button(label="🔄", style = discord.ButtonStyle.blurple)
+    @discord.ui.button(label="🔄 Restart Tournament", style = discord.ButtonStyle.blurple)
     async def restart_tournament(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -132,7 +131,7 @@ class T_Admin(discord.ui.View):
         await interaction.response.send_message(f"Are you sure you want to **RESTART** '{self.tournament.name}'?", view=view)
 
     # Delete Tournament button
-    @discord.ui.button(label="Delete Tournament", style = discord.ButtonStyle.red)
+    @discord.ui.button(label="❌ Delete Tournament", style = discord.ButtonStyle.red)
     async def delete_tournament(self,  button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -175,7 +174,7 @@ async def show_registered_users(t: Tournament, interaction: discord.Interaction)
         return
     await interaction.response.send_message(f"**Registered Players**\n"
                                             f"{players_list}\n"
-                                            f"**Registered Reserves**\n"
+                                            f"\n**Registered Reserves**\n"
                                             f"{reserves_list}", ephemeral=True)
 
 class Restart_Confirmation_View(discord.ui.View):

@@ -49,7 +49,12 @@ async def create(
     overwrites.read_message_history = True
     overwrites.manage_messages = True
     overwrites.view_channel = True
-    await registration_channel.set_permissions(ctx.guild.me, overwrite=overwrites)
+    try:
+        await registration_channel.set_permissions(ctx.guild.me, overwrite=overwrites)
+    except discord.Forbidden as e:
+        print(f"Failed to set permissions: {e}")
+        await ctx.respond("Failed. The bot does not have permission to set channel permissions. Make sure the bot has the 'View Channel' and 'Manage Channels' permissions", ephemeral=True)
+        return
 
     # Display the Modal requesting input from the user
     modal = Create_Tournament(reg_channel=registration_channel, title="Create Tournament", player_cap=player_cap)

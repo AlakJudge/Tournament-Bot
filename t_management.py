@@ -175,8 +175,8 @@ class Editing_Modal(discord.ui.Modal):
                         await tournament_channel.send(f"**{promoted_player.mention} has been promoted from reserve to player!**")
 
         await interaction.response.send_message(f"{self.field} updated to {new_value}.", ephemeral=True)
-        await update_tournament_embeds(self.tournament, interaction)
         self.tournament.save()
+        await update_tournament_embeds(self.tournament, interaction)
 
 # Edit the tournament embeds
 async def update_tournament_embeds(t:Tournament, interaction):
