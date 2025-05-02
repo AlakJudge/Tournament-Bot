@@ -11,9 +11,6 @@ from tournament import Tournament
 tournament_lock = asyncio.Lock() 
 
 
-
-
-
 #####################
 # RUN SETUP SECTION #
 #####################
@@ -102,7 +99,7 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
         embed = create_tournament_embed(tournament)
         tournament_channel_msg = await tournament_channel.send(embeds=[embed], view=running_view)
         await tournament_channel_msg.pin()
-        await tournament_channel.send(f"# '{tournament.name}' has started. GOOD LUCK! :fire:")
+        await tournament_channel.send(f"# Registration for '{tournament.name}' is open. GOOD LUCK! :fire:")
         # Save id of that embed
         tournament.tournament_channel_msg_id = tournament_channel_msg.id
         
@@ -591,9 +588,13 @@ async def lock_all_threads(interaction: discord.Interaction, channel: discord.Te
     else:
         await interaction.response.send_message(f"*All Round {round} game threads in {channel.mention} have been locked*")
 
-# Function to check if all winners have been selected
+# Function to check if all current round winners have been selected
 def all_winners_selected(tournament: Tournament):
-    for match in tournament.matches:
+    # Find all matches in the current round
+    current_round = max(int(match["id"].split('-')[0][1:]) for match in tournament.matches)
+    round_matches = [match for match in tournament.matches if match["id"].startswith(f"R{current_round}-")]
+
+    for match in round_matches:
         if not match["winner"]:
             return False
     return True
