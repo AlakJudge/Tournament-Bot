@@ -11,6 +11,9 @@ from tournament import Tournament
 tournament_lock = asyncio.Lock() 
 
 
+
+
+
 #####################
 # RUN SETUP SECTION #
 #####################
@@ -128,7 +131,7 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
         match = {
             "id": match_id,
             "players": [],
-            "winner": None,
+            "winners": [],
             "thread_id": thread.id,
         }
 
@@ -239,8 +242,13 @@ class Select_Winner_Menu(discord.ui.Select):
                 description=f"Select {player} as the winner of the match."
             )
             for player in match["players"]
-        ]            
-        super().__init__(placeholder="Select the winner of the match.", min_values=1, max_values=1, options=options)
+        ]      
+
+        super().__init__(
+            placeholder="Select the winner of the match.", 
+            min_values=1, 
+            max_values=(len(match["players"])), # Allow selecting multiple winners
+            options=options)
 
     async def callback(self, interaction: discord.Interaction):
         async with tournament_lock:
@@ -250,16 +258,19 @@ class Select_Winner_Menu(discord.ui.Select):
             
             self.tournament = Tournament.load_tournament_by_name(self.tournament.name) # update tournament info from file
 
-            winner: discord.Member = discord.utils.get(interaction.guild.members, name=self.values[0]) 
-            await interaction.response.send_message(f"## {winner.mention} is the winner of this match!")
+            winners = [discord.utils.get(interaction.guild.members, name=value) for value in self.values]
+            mentions = ", ".join(winner.mention for winner in winners)
+
+            await interaction.response.send_message(f"## Winners of this match: {mentions}")
 
             # Iterate through and find the corresponding match
             match = next(m for m in self.tournament.matches if m["id"] == self.match_id)
-            match["winner"] = winner.name  # Update the winner for the correct match
+            match["winners"] = [winner.name for winner in winners] # Update the match with multiple winners
             self.tournament.save()
             
+            # Handle tournament progression logic
             if self.tournament.curr_num_matches == 1:
-                self.tournament.set_tournament_winner(winner.name)
+                self.tournament.set_tournament_winner(", ".join(match["winners"]))
                 self.tournament.save()
                 await run_tournament(self.tournament, interaction)
             else:
@@ -425,7 +436,7 @@ class Tournament_Running_View(discord.ui.View):
         # Filter matches to get only those from the last round
         last_round_matches = [match for match in tournament.matches if match["id"].startswith(f"R{last_round}-")]
         # Create a list of pending matches
-        pending_matches_list = "\n".join([f"**{match['id']}**\n{'\n'.join(match['players'])}" for match in last_round_matches if not match["winner"]])
+        pending_matches_list = "\n".join([f"**{match['id']}**\n{'\n'.join(match['players'])}" for match in last_round_matches if not match["winners"]])
         # Send the list of pending matches to the tournament channel
         if pending_matches_list:
             await interaction.response.send_message(f"## **Pending Matches:**\n{pending_matches_list}")
@@ -479,14 +490,15 @@ class Add_Player_Modal(discord.ui.Modal):
 
 # Set the winner of a match while the tournament is running
 async def set_match_winner(interaction, tournament: Tournament, match_id: int, player: str):
-    # Get player user object
-    user: discord.Member = discord.utils.get(interaction.guild.members, name=player)
+
     # Iterate through and find the match
     match = next((m for m in tournament.matches if m["id"] == match_id), None)
     if match:
-        match["winner"] = player
+        match["winners"].append(player)
         tournament.save()
-        await send_message_to_game_thread(interaction, tournament, match_id, f"## {user.mention} is the winner of this match!")
+
+        mentions = ", ".join(discord.utils.get(interaction.guild.members, name=p).mention for p in match["winners"])
+        await send_message_to_game_thread(interaction, tournament, match_id, f"## Winners of this match: {mentions}")
         return True
 
     print("Failed. Match not found.")
@@ -537,8 +549,8 @@ def get_round_winners(tournament: Tournament):
     last_round = max(int(match["id"].split('-')[0][1:]) for match in tournament.matches)
     # Filter matches to get only those from the last round
     last_round_matches = [match for match in tournament.matches if match["id"].startswith(f"R{last_round}-")]
-    # Extract the winners from those matches
-    winners = [match["winner"] for match in last_round_matches if match["winner"]]
+    # Extract the winners from those matches. Flatten the list of winners
+    winners = [winner for match in last_round_matches for winner in match["winners"] if match["winners"]]
     return winners
 
 # Send message of all winners from the previous round to tournament channel
@@ -547,18 +559,20 @@ async def send_round_winners(interaction: discord.Interaction, tournament: Tourn
     tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
     # Get the winners from the previous round
     winners = get_round_winners(tournament)
+
     winners_users = []
     for winner in winners:
         user: discord.Member = discord.utils.get(interaction.guild.members, name=winner)
         if not user:
             await interaction.followup.send(f"User '{winner}' not found in this server.", ephemeral=True)
             winners.remove(winner)  # Remove the player from the list
+            continue
         winners_users.append(user) # Add the user to the list
 
     # Send the list of winners to the tournament channel
-    if winners:
+    if winners_users:
         await tournament_channel.send(f"## Congratulations to all **Round {tournament.round} Winners! :fire:**\n"
-                                      f"{'\n'.join(f'Game {index+1}: {winner.mention}' for index, winner in enumerate(winners_users))}")
+                                        f"{', '.join(user.mention for user in winners_users)}")
     else:
         await interaction.followup.send("## No winners found for the previous round.")
 
@@ -595,7 +609,7 @@ def all_winners_selected(tournament: Tournament):
     round_matches = [match for match in tournament.matches if match["id"].startswith(f"R{current_round}-")]
 
     for match in round_matches:
-        if not match["winner"]:
+        if not match["winners"]:
             return False
     return True
 
