@@ -120,6 +120,9 @@ class T_Admin(discord.ui.View):
     # Show list of registered users
     @discord.ui.button(label="👥 Player List", style = discord.ButtonStyle.blurple)
     async def show_reg(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+        
         await show_registered_users(self.tournament, interaction)
 
     # Restart the tournament - Delete everything but the registered players/reserves and base info data
