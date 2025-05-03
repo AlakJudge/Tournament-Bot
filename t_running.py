@@ -181,7 +181,7 @@ class Start_Match_View(discord.ui.View):
         self.match_id = match_id 
         self.tournament: Tournament = tournament
 
-    @discord.ui.button(label="Start Match", style=discord.ButtonStyle.green)
+    @discord.ui.button(label="🏁 Start Match", style=discord.ButtonStyle.green)
     async def start_match(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -192,7 +192,7 @@ class Start_Match_View(discord.ui.View):
         winner_view = Select_Winner_View(self.tournament, self.match_id)
         await interaction.response.send_message(f"Match Started! Once it's over, an Admin will select the winner below.", view=winner_view)
 
-    @discord.ui.button(label="Add Reserve", style=discord.ButtonStyle.blurple)
+    @discord.ui.button(label="➕ Add Reserve", style=discord.ButtonStyle.blurple)
     async def add_reserve(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -206,7 +206,18 @@ class Start_Match_View(discord.ui.View):
         else:
             await interaction.response.send_message("No reserves available to add.", ephemeral=True)
 
-    @discord.ui.button(label="Ready Check", style=discord.ButtonStyle.blurple)
+    @discord.ui.button(label="⏩ Transfer Player", style=discord.ButtonStyle.blurple)
+    async def transfer_player(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Check if the user has the admin role or is a server admin
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+        
+        # Ephemeral drop-down menu to select one of the players in the match for a transfer
+        transfer_view = Transfer_Player_View(self.tournament, self.match_id)
+        await interaction.response.send_message("", view=transfer_view, ephemeral=True)
+
+
+    @discord.ui.button(label="✅ Ready Check", style=discord.ButtonStyle.green)
     async def ready_up(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -220,6 +231,63 @@ class Start_Match_View(discord.ui.View):
             await interaction.response.send_message("Ready check sent to all players.", ephemeral=True)
 
         await not_ready_forfeit(interaction, view, thread, match_players)
+
+class Transfer_Player_View(discord.ui.View):    
+    def __init__(self, tournament, match_id):
+        super().__init__(timeout=None)
+        self.add_item(Transfer_Player_Menu(tournament, match_id))
+
+class Transfer_Player_Menu(discord.ui.Select):
+    def __init__(self, tournament: Tournament, match_id: str):
+        self.tournament = tournament
+        self.match_id = match_id
+
+        match = next((m for m in self.tournament.matches if m["id"] == self.match_id), None)
+
+        options = [
+            discord.SelectOption(
+                label=player, 
+                description=f"Transfer {player} to another match")
+            for player in match["players"]
+        ]
+
+        super().__init__(
+            placeholder="Select a player to transfer...",
+            min_values=1,
+            max_values=1,
+            options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):        
+        # Get the selected player
+        selected_player = self.values[0]
+        
+        modal = Transfer_Modal(self.tournament, selected_player, self.match_id)
+        await interaction.response.send_modal(modal)
+
+
+# Modal for transferring player to another match. Collect new match id
+class Transfer_Modal(discord.ui.Modal):
+    def __init__(self, tournament, player, old_match_id):
+        super().__init__(title="Edit Field Value")
+        self.add_item(discord.ui.InputText(label=f"Player being transferred", value=player))
+        self.add_item(discord.ui.InputText(label=f"Transfer {player} to: ", placeholder="Enter new match id"))
+        self.tournament: Tournament = tournament
+        self.players = player
+        self.old_match_id = old_match_id
+
+    async def callback(self, interaction: discord.Interaction):
+        player = self.children[0].value
+        new_match_id = self.children[1].value
+
+        success = await add_player_to_match(interaction, self.tournament, new_match_id, player)
+
+        if success:
+            await interaction.response.send_message(f"{player} added to Match {new_match_id}.", ephemeral=True)
+            await remove_player_from_match(interaction, self.tournament, self.old_match_id, player) # Remove player from old match
+        else:
+            await interaction.response.send_message(f"Failed to add {player} to Match {new_match_id}.", ephemeral=True)
+
 
 
 class Select_Winner_View(discord.ui.View):    
@@ -353,7 +421,7 @@ class Tournament_Running_View(discord.ui.View):
         super().__init__(timeout=None)
         self.tournament: Tournament = tournament
 
-    @discord.ui.button(label="Go to Next Round", style=discord.ButtonStyle.green)
+    @discord.ui.button(label="🏁 Go to Next Round", style=discord.ButtonStyle.green)
     async def go_to_next_round(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -375,7 +443,7 @@ class Tournament_Running_View(discord.ui.View):
         else:
             await interaction.followup.send(f"## ROUND {self.tournament.round} STARTED!")
 
-    @discord.ui.button(label="Add Player to Match", style=discord.ButtonStyle.blurple)
+    @discord.ui.button(label="➕ Add Player to Match", style=discord.ButtonStyle.blurple)
     async def add_player(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -384,7 +452,7 @@ class Tournament_Running_View(discord.ui.View):
         # Modal requesting play name and match id. Will add new player to an existing match
         await interaction.response.send_modal(Add_Player_Modal(self.tournament))
 
-    @discord.ui.button(label="Set Match Winner", style=discord.ButtonStyle.blurple)
+    @discord.ui.button(label="🏅 Set Match Winner", style=discord.ButtonStyle.blurple)
     async def set_winner(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -393,7 +461,7 @@ class Tournament_Running_View(discord.ui.View):
         # Modal to select the match to set the winner for and the name of the winner
         await interaction.response.send_modal(Set_Winner_Modal(self.tournament))
 
-    @discord.ui.button(label="📣", style=discord.ButtonStyle.blurple)
+    @discord.ui.button(label="📣 Announcement", style=discord.ButtonStyle.blurple)
     async def send_announcement(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -402,7 +470,7 @@ class Tournament_Running_View(discord.ui.View):
         # Modal to collect user announcement, then send it to all active threads
         await interaction.response.send_modal(Announcement_Modal(self.tournament))
 
-    @discord.ui.button(label="✅", style=discord.ButtonStyle.blurple)
+    @discord.ui.button(label="✅ Ready Check All Games", style=discord.ButtonStyle.blurple)
     async def ready_all(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -426,7 +494,7 @@ class Tournament_Running_View(discord.ui.View):
         for view, thread, match_players in ready_check_data:
             await not_ready_forfeit(interaction, view, thread, match_players)
 
-    @discord.ui.button(label="Show Pending Matches", style=discord.ButtonStyle.blurple)
+    @discord.ui.button(label="⏳ Show Pending Matches", style=discord.ButtonStyle.blurple)
     async def show_pending_matches(self, button: discord.ui.Button, interaction: discord.Interaction):        
         # Update tournament data
         tournament: Tournament = Tournament.load_tournament_by_name(self.tournament.name) 
@@ -439,7 +507,7 @@ class Tournament_Running_View(discord.ui.View):
         pending_matches_list = "\n".join([f"**{match['id']}**\n{'\n'.join(match['players'])}" for match in last_round_matches if not match["winners"]])
         # Send the list of pending matches to the tournament channel
         if pending_matches_list:
-            await interaction.response.send_message(f"## **Pending Matches:**\n{pending_matches_list}")
+            await interaction.response.send_message(f"## ⏳Pending Matches:\n{pending_matches_list}")
         else:
             await interaction.response.send_message("## All winners have been selected. No pending matches found.")
 
@@ -461,13 +529,35 @@ async def add_player_to_match(interaction, tournament: Tournament, match_id: int
         if player not in match["players"]:
             match["players"].append(player)
             tournament.save()
-            await send_message_to_game_thread(interaction, tournament, match_id, f"{user.mention} has been added to the match.")
+            await send_message_to_game_thread(interaction, tournament, match_id, f"{user.mention} has been added to this match.")
             return True
         else:
-            print("Failed. Player already in match.")
+            await send_message_to_game_thread(interaction, tournament, match_id, f"Failed. {user.mention} already in this match.", ephemeral=True)
+            return False 
+    await send_message_to_game_thread(interaction, tournament, match_id, f"Failed. Match not found.", ephemeral=True)
+    return False 
+
+# Remove a player from a match while the tournament is running
+async def remove_player_from_match(interaction, tournament: Tournament, match_id: int, player: str):
+    user: discord.Member = discord.utils.get(interaction.guild.members, name=player)
+    match = next((m for m in tournament.matches if m["id"] == match_id), None)
+
+    if match:
+        if player in match["players"]:
+            match["players"].remove(player)
+            tournament.save()
+            await send_message_to_game_thread(interaction, tournament, match_id, f"{user.mention} has been removed from this match.")
+            # If match is now empty, lock the thread
+            if not match["players"]:
+                thread = discord.utils.get(interaction.guild.threads, id=match["thread_id"])
+                await thread.edit(locked=True)
+                await thread.send(f"## This match has no players. The thread will be locked.")
+            return True
+        else:
+            print("Failed. Player not in match.")
             return False 
     print("Failed. Match not found.")
-    return False 
+    return False
 
 # Modal for adding new player to match
 class Add_Player_Modal(discord.ui.Modal):
