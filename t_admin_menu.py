@@ -15,7 +15,7 @@ class T_Admin(discord.ui.View):
         return create_tournament_embed(self.tournament)
     
     # Open Registration button
-    @discord.ui.button(label="🏁 Open Registration", style = discord.ButtonStyle.green)
+    @discord.ui.button(label="📖 Open Registration", style = discord.ButtonStyle.green)
     async def open_reg(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
