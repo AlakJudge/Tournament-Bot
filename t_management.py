@@ -28,10 +28,13 @@ class Create_Tournament(discord.ui.Modal):
         tournament =  create_tournament(name=name, reg_channel=self.reg_channel, game=game, date=date, time=time, prize=prize, player_cap=self.player_cap)
         tournament_creation_embed = create_tournament_embed(tournament) # Create the embed with the tournament details
 
-        # Create and assign admin role to creator
+        # Create and assign "admin" role to creator
         admin_role = await interaction.guild.create_role(name=f"({tournament.id}) Tournament Admin", permissions=discord.Permissions.none(), mentionable=True)
         await interaction.user.add_roles(admin_role)
         tournament.admin_role = admin_role.name
+
+        # Set tournament owner
+        tournament.owner = interaction.user.id
 
         # Create general role for participants
         participants_role = await interaction.guild.create_role(name=f"({tournament.id}) Tournament Participant", permissions=discord.Permissions.none())
