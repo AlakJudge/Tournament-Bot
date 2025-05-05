@@ -125,6 +125,31 @@ class T_Admin(discord.ui.View):
         
         await show_registered_users(self.tournament, interaction)
 
+    # Add New Admin button
+    @discord.ui.button(label="➕ Add New Admin", style = discord.ButtonStyle.blurple)
+    async def add_admin(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+
+        # Send modal to get username
+        modal = Add_Admin_Modal(self.tournament)
+        await interaction.response.send_modal(modal)
+
+    # Rmove Admin button
+    @discord.ui.button(label="➖ Remove Admin", style = discord.ButtonStyle.blurple)
+    async def remove_admin(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+
+        # Check if the user is the owner of the tournament
+        if interaction.user.id != self.tournament.owner:
+            await interaction.response.send_message("Only the owner of the tournament can remove admins.", ephemeral=True)
+            return
+
+        # Send modal to get username
+        modal = Remove_Admin_Modal(self.tournament)
+        await interaction.response.send_modal(modal)
+
     # Restart the tournament - Delete everything but the registered players/reserves and base info data
     @discord.ui.button(label="🔄 Restart Tournament", style = discord.ButtonStyle.blurple)
     async def restart_tournament(self, button: discord.ui.Button, interaction: discord.Interaction):
@@ -140,6 +165,62 @@ class T_Admin(discord.ui.View):
             return
         view = Delete_Confirmation_View(message=interaction.message, tournament = self.tournament)
         await interaction.response.send_message(f"Are you sure you want to **DELETE** '{self.tournament.name}'?", view=view)
+
+class Add_Admin_Modal(discord.ui.Modal):
+    def __init__(self, tournament: Tournament):
+        super().__init__(title="Add Tournament Administrator")
+        self.tournament = tournament
+        self.add_item(discord.ui.InputText(label="Discord username of the new Tournament Admin"))
+
+    async def callback(self, interaction):
+        # Get the admin role for this tournament
+        admin_role = discord.utils.get(interaction.guild.roles, name=f"({self.tournament.id}) Tournament Admin")
+         # Get the user from the modal input
+        username = self.children[0].value
+        user = discord.utils.get(interaction.guild.members, name=username)
+
+        if not user:
+            await interaction.response.send_message(f"❌ Failed! User '{username}' not found in the server.", ephemeral=True)
+            return
+        
+        # Check if the user is already an admin
+        if admin_role in user.roles:
+            await interaction.response.send_message(f"❌ Failed! User '{username}' is already an admin.", ephemeral=True)
+            return
+        else:
+            # Add the admin role to the user
+            await user.add_roles(admin_role)
+            await interaction.response.send_message(f"✅ Success! User '{username}' has been added as an admin, with the '{admin_role}' role.", ephemeral=True)
+
+class Remove_Admin_Modal(discord.ui.Modal):
+    def __init__(self, tournament: Tournament):
+        super().__init__(title="Remove Tournament Administrator")
+        self.tournament = tournament
+        self.add_item(discord.ui.InputText(label="Discord username of the Tournament Admin"))
+
+    async def callback(self, interaction):
+        # Get the admin role for this tournament
+        admin_role = discord.utils.get(interaction.guild.roles, name=f"({self.tournament.id}) Tournament Admin")
+         # Get the user from the modal input
+        username = self.children[0].value
+        user = discord.utils.get(interaction.guild.members, name=username)
+
+        if user.id == self.tournament.owner:
+            await interaction.response.send_message(f"❌ Failed! You cannot remove the owner of the tournament.", ephemeral=True)
+            return
+
+        if not user:
+            await interaction.response.send_message(f"❌ Failed! User '{username}' not found in the server.", ephemeral=True)
+            return
+        
+        # Check if the user is an admin
+        if not admin_role in user.roles:
+            await interaction.response.send_message(f"❌ Failed! User '{username}' is not an Admin for this tournament.", ephemeral=True)
+            return
+        else:
+            # Remove the admin role from the user
+            await user.remove_roles(admin_role)
+            await interaction.response.send_message(f"✅ Success! User '{username}' has been removed as an Admin for this tournament.", ephemeral=True)
 
 # Modal to get new thread message
 class Thread_Msg_Modal(discord.ui.Modal):
