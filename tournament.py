@@ -6,7 +6,7 @@ json_file_path = os.path.join(current_dir, "tournaments.json")
 
 class Tournament:
     def __init__(self, id, name, game, date, time, prize, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
-                 reg_channel=None, reg_msg_id=None, admin_msg_id=None, tournament_channel_id=None, tournament_channel_msg_id=None, 
+                 reg_channel=None, reg_msg_id=None, admin_msg_id=None, owner=None, tournament_channel_id=None, tournament_channel_msg_id=None, 
                  participants_channel_id=None, curr_num_matches=None, players=None, reserves=None, tournament_winner=None, matches=None):
         self.id = id
         self.reg_channel = reg_channel
@@ -25,6 +25,7 @@ class Tournament:
         self.player_cap = player_cap
         self.thread_msg = thread_msg
         self.admin_role = admin_role
+        self.owner = owner
         self.participants_role = participants_role
         self.round = round
         self.players = players or []
@@ -129,6 +130,7 @@ class Tournament:
                     t.player_cap = self.player_cap
                     t.thread_msg = self.thread_msg
                     t.admin_role = self.admin_role
+                    t.owner = self.owner
                     t.participants_role = self.participants_role
                     t.round = self.round
                     t.players = self.players
@@ -177,6 +179,7 @@ class Tournament:
                                 player_cap=item.get("player_cap"),
                                 thread_msg=item.get("thread_msg"),
                                 admin_role=item["admin_role"],
+                                owner=item["owner"],
                                 participants_role=item["participants_role"],
                                 round=item.get("round", 0),
                                 players=item["players"],
