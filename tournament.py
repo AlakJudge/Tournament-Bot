@@ -149,13 +149,13 @@ class Tournament:
         if not updated:
             tournaments.append(self)
 
-        # Save all tournaments to JSON
         with open(json_file_path, "w") as file:
             json.dump([t.__dict__ for t in tournaments], file, indent=4)
-
+    
+    # Save all tournaments to JSON
     @staticmethod
     def save_all(tournaments):
-        with open("tournaments.json", "w") as file:
+        with open(json_file_path, "w") as file:
             json.dump([t.__dict__ for t in tournaments], file, indent=4)
     
     @staticmethod
