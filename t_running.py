@@ -37,7 +37,9 @@ async def run_tournament(t:Tournament, interaction: discord.Interaction):
     else:
         tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
         user: discord.Member = discord.utils.get(interaction.guild.members, name=tournament.tournament_winner)
-        await tournament_channel.send(f"# The winner of '{tournament.name}' is {user.mention}! CONGRATULATIONS! :tada::tada:")
+        participant_role = discord.utils.get(interaction.guild.roles, name=f"({tournament.id}) Tournament Participant")
+        await tournament_channel.send(f"# The winner of '{tournament.name}' is {user.mention}! CONGRATULATIONS! :tada::tada:\n"
+                                      f"Thank you all {participant_role.mention}s for attending and being awesome. See you next time! :fire:")
         await lock_all_threads(interaction, tournament_channel, tournament.round)
 
 # Set the match details for the current round
