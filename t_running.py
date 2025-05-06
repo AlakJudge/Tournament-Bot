@@ -374,7 +374,8 @@ class Ready_Check_Button(discord.ui.Button):
 
         # Check if the user has already clicked the button
         if user_name in self.clicked_users:
-            await interaction.response.send_message("You have already marked yourself as ready.", ephemeral=True)
+            await interaction.response.send_message(f"You've already clicked the button, {interaction.user.mention}.", ephemeral=True)
+            return
         else:
             self.clicked_users.add(user_name)
             await interaction.response.send_message(f"{interaction.user.mention} is ready!")
@@ -390,9 +391,9 @@ async def ready_check(interaction: discord.Interaction, tournament: Tournament, 
 
     return view, thread, match_players
         
-async def not_ready_forfeit(interaction: discord.Interaction, view: Ready_Check_View, thread: discord.Thread, match_players: list):
+async def not_ready_forfeit(interaction: discord.Interaction, view: Ready_Check_View, thread: discord.Thread, match_players: list):   
     # Wait for 5 minutes
-    await asyncio.sleep(300)
+    await asyncio.sleep(30)
 
     # Tag players who did not click the ready button
     not_ready_players = [player for player in match_players if player not in view.children[0].clicked_users]
@@ -491,8 +492,11 @@ class Tournament_Running_View(discord.ui.View):
             await interaction.response.send_message("Ready check sent to all players.", ephemeral=True)
 
         # Wait 5 mins, then tag all players not ready yet in each active thread
-        for view, thread, match_players in ready_check_data:
-            await not_ready_forfeit(interaction, view, thread, match_players)
+        tasks = [
+            not_ready_forfeit(interaction, view, thread, match_players)
+            for view, thread, match_players in ready_check_data
+        ]
+        await asyncio.gather(*tasks)
 
     @discord.ui.button(label="⏳ Show Pending Matches", style=discord.ButtonStyle.blurple)
     async def show_pending_matches(self, button: discord.ui.Button, interaction: discord.Interaction):        
@@ -547,11 +551,13 @@ async def remove_player_from_match(interaction, tournament: Tournament, match_id
             match["players"].remove(player)
             tournament.save()
             await send_message_to_game_thread(interaction, tournament, match_id, f"{user.mention} has been removed from this match.")
-            # If match is now empty, lock the thread
-            if not match["players"]:
-                thread = discord.utils.get(interaction.guild.threads, id=match["thread_id"])
-                await thread.edit(locked=True)
-                await thread.send(f"## This match has no players. The thread will be locked.")
+            thread = discord.utils.get(interaction.guild.threads, id=match["thread_id"])
+            if thread:
+                await thread.remove_user(user) # Remove user from thread
+                # If match is now empty, lock the thread
+                if not match["players"]:
+                    await thread.edit(locked=True)
+                    await thread.send(f"## This match has no players. The thread will be locked.")
             return True
         else:
             print("Failed. Player not in match.")
