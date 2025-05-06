@@ -1,6 +1,7 @@
 import discord
 from tournament import Tournament
-from datetime import datetime
+from datetime import datetime, timedelta
+import asyncio
 
 # Check if the user has the admin role or is a server admin
 async def check_tournament_admin(interaction: discord.Interaction, tournament: Tournament):          
@@ -47,3 +48,43 @@ async def unix_convert_date_time(interaction, date: str, time: str) -> str:
     unix_timestamp = int(combined_datetime.timestamp()) # Convert to Unix timestamp
     formatted_date_time = f"<t:{unix_timestamp}:F>" # Format: <t:unix_timestamp:F> for full date and time
     return formatted_date_time
+
+# Function to send an announcement message to all active game threads
+async def send_announcement(interaction: discord.Interaction, tournament: Tournament, message: str, type: str):
+    if type == "threads":
+        # Iterate through and find the match
+        for match in tournament.matches:
+            thread = discord.utils.get(interaction.guild.threads, id=match["thread_id"])
+            if not thread.locked:
+                await thread.send(f"{message}")
+    elif type == "t_channel":
+        # Send message to the tournament channel
+        tournament_channel = interaction.guild.get_channel(tournament.tournament_channel_id)
+        if tournament_channel:
+            await tournament_channel.send(f"{message}")
+
+async def schedule_notifications(tournament: Tournament, interaction: discord.Interaction, intervals: list[int] = [24, 2]):
+    # Convert the date_time field (Discord timestamp) to a datetime object
+    start_time = datetime.fromtimestamp(int(tournament.date_time[3:-3]))
+    now = datetime.now()
+
+    # Check if the tournament has already started
+    if start_time < now:
+        await interaction.response.send_message("The tournament has already started. Cannot schedule notifications.", ephemeral=True)
+        return
+
+    for interval in intervals:
+        delay = (start_time - timedelta(hours=interval) - now).total_seconds()
+        if delay > 0:
+            if interaction.response.is_done():
+                await interaction.followup.send(f"Scheduled notification for {interval} hours before the tournament.", ephemeral=True)
+            else:
+                await interaction.response.send_message(f"Scheduled notification for {interval} hours before the tournament.", ephemeral=True)
+            asyncio.create_task(send_notification(tournament, interaction, delay, interval))
+
+async def send_notification(tournament: Tournament, interaction: discord.Interaction, delay: float, interval: int):
+    await asyncio.sleep(delay)  # Wait for the specified delay
+    # Get participants role
+    participant_role = discord.utils.get(interaction.guild.roles, name=f"({tournament.id}) Tournament Participant")
+    message = f"## 🚨 REMINDER {participant_role.mention} 🚨: The tournament '{tournament.name}' will begin in {interval} hours!"
+    await send_announcement(interaction, tournament, message, "t_channel")
