@@ -2,7 +2,7 @@ import asyncio
 import discord
 from math import ceil
 from random import shuffle
-from t_utils import check_tournament_admin
+from t_utils import check_tournament_admin, send_announcement
 from t_management import create_tournament_embed, update_tournament_embeds
 from t_registration import close_registration
 from tournament import Tournament
@@ -703,14 +703,6 @@ def all_winners_selected(tournament: Tournament):
             return False
     return True
 
-# Function to send an announcement message to all active game threads
-async def send_announcement(interaction: discord.Interaction, tournament: Tournament, message: str):
-    # Iterate through and find the match
-    for match in tournament.matches:
-        thread = discord.utils.get(interaction.guild.threads, id=match["thread_id"])
-        if not thread.locked:
-            await thread.send(f"{message}")
-
 # Modal to collect user input(announcement), then send it to all active threads
 class Announcement_Modal(discord.ui.Modal):
     def __init__(self, tournament: Tournament):
@@ -724,5 +716,5 @@ class Announcement_Modal(discord.ui.Modal):
 
     async def callback(self, interaction: discord.Interaction):
         message = self.children[0].value
-        await send_announcement(interaction, self.tournament, message)
+        await send_announcement(interaction, self.tournament, message, "threads")
         await interaction.response.send_message(f"Announcement sent to all active game threads.", ephemeral=True)
