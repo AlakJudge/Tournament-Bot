@@ -5,7 +5,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 json_file_path = os.path.join(current_dir, "tournaments.json")
 
 class Tournament:
-    def __init__(self, id, name, game, date, time, prize, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
+    def __init__(self, id, name, game, date, time, date_time, prize, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
                  reg_channel=None, reg_msg_id=None, admin_msg_id=None, owner=None, tournament_channel_id=None, tournament_channel_msg_id=None, 
                  participants_channel_id=None, curr_num_matches=None, players=None, reserves=None, tournament_winner=None, matches=None):
         self.id = id
@@ -21,6 +21,7 @@ class Tournament:
         self.game = game
         self.date = date
         self.time = time
+        self.date_time = date_time
         self.prize = prize
         self.player_cap = player_cap
         self.thread_msg = thread_msg
@@ -67,6 +68,10 @@ class Tournament:
     def edit_time(self, new_time):
         self.time = new_time
 
+    # Edit tournament date_time
+    def edit_date_time(self, new_date_time):
+        self.date_time = new_date_time
+        
     # Edit tournament prize
     def edit_prize(self, new_prize):
         self.prize = new_prize
@@ -126,6 +131,7 @@ class Tournament:
                     t.game = self.game
                     t.date = self.date
                     t.time = self.time
+                    t.date_time = self.date_time
                     t.prize = self.prize
                     t.player_cap = self.player_cap
                     t.thread_msg = self.thread_msg
@@ -175,6 +181,7 @@ class Tournament:
                                 game=item["game"],
                                 date=item["date"],
                                 time=item["time"],
+                                date_time=item["date_time"],
                                 prize=item["prize"],
                                 player_cap=item.get("player_cap"),
                                 thread_msg=item.get("thread_msg"),
