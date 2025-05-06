@@ -393,7 +393,7 @@ async def ready_check(interaction: discord.Interaction, tournament: Tournament, 
         
 async def not_ready_forfeit(interaction: discord.Interaction, view: Ready_Check_View, thread: discord.Thread, match_players: list):   
     # Wait for 5 minutes
-    await asyncio.sleep(30)
+    await asyncio.sleep(300)
 
     # Tag players who did not click the ready button
     not_ready_players = [player for player in match_players if player not in view.children[0].clicked_users]
