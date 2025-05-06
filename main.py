@@ -74,6 +74,7 @@ async def tournament_list(ctx: discord.ApplicationContext):
 # Slash command to ADMIN a tournament
 @bot.slash_command(name = "admin", description = "Administrate a Tournament by entering its ID number.")
 async def admin(ctx: discord.ApplicationContext, id:int = discord.Option(description="Find this ID number by using the tournaments_list command")):
+    await ctx.defer() 
     # Find the tournament
     tournaments = Tournament.load_all_tournaments()
     tournament: Tournament = next((t for t in tournaments if t.id == int(id)), None) # Go through all tournaments and find the id entered.
