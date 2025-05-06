@@ -1,5 +1,5 @@
 from tournament import Tournament
-from t_utils import move_reserve_to_player
+from t_utils import move_reserve_to_player, unix_convert_date_time
 import discord
 
 ###############################
@@ -14,7 +14,7 @@ class Create_Tournament(discord.ui.Modal):
         self.add_item(discord.ui.InputText(label="Tournament Name"))
         self.add_item(discord.ui.InputText(label="Game", placeholder="e.g. Ticket to Ride, Monopoly, Cluedo, etc."))
         self.add_item(discord.ui.InputText(label="Date", placeholder="Format: DD/MM/YYYY"))
-        self.add_item(discord.ui.InputText(label="Time", placeholder="Format: HH:MM AM/PM"))
+        self.add_item(discord.ui.InputText(label="Time", placeholder="Format: HH:MM (e.g. 17:30)"))
         self.add_item(discord.ui.InputText(label="Prize", placeholder="e.g. Expansion, Free Game, etc."))
 
     # Getting the data from the player input modal
@@ -24,8 +24,20 @@ class Create_Tournament(discord.ui.Modal):
         date = self.children[2].value
         time = self.children[3].value
         prize = self.children[4].value
+        
+        # Validate and convert date and time to a Discord timestamp format and save it
+        formatted_date_time = await unix_convert_date_time(interaction, date, time)
 
-        tournament =  create_tournament(name=name, reg_channel=self.reg_channel, game=game, date=date, time=time, prize=prize, player_cap=self.player_cap)
+        tournament =  create_tournament(
+            name=name, 
+            reg_channel=self.reg_channel, 
+            game=game, 
+            date=date,
+            time=time,
+            date_time=formatted_date_time,
+            prize=prize, 
+            player_cap=self.player_cap
+        )
         tournament_creation_embed = create_tournament_embed(tournament) # Create the embed with the tournament details
 
         # Create and assign "admin" role to creator
@@ -50,15 +62,14 @@ class Create_Tournament(discord.ui.Modal):
 def create_tournament_embed(tournament:Tournament):
     embed = discord.Embed(title=f"{tournament.name} - Tournament Information")
     embed.add_field(name="Game", value=tournament.game, inline=False)
-    embed.add_field(name="Date", value=tournament.date, inline=False)
-    embed.add_field(name="Time", value=tournament.time, inline=False)
+    embed.add_field(name="Date & Time (Your Timezone)", value=tournament.date_time, inline=False)
     embed.add_field(name="Prize", value=tournament.prize, inline=False)
     embed.add_field(name="Players Registered", value=f"{len(tournament.players)}/{tournament.player_cap} + *{len(tournament.reserves)} Reserves*", inline=False)
     embed.add_field(name="Registration Status", value=tournament.reg_status, inline=False)
     return embed
 
 # Create the new tournament and save to file
-def create_tournament(name, reg_channel, game, date, time, prize, player_cap: int):
+def create_tournament(name, reg_channel, game, date, time, date_time, prize, player_cap: int):
     tournaments = Tournament.load_all_tournaments()
     # Set the tournament ID
     if tournaments:
@@ -71,8 +82,9 @@ def create_tournament(name, reg_channel, game, date, time, prize, player_cap: in
         reg_channel=reg_channel, 
         name=name, 
         game=game, 
-        date=date, 
-        time=time, 
+        date=date,
+        time=time,
+        date_time=date_time,
         prize=prize,
         player_cap=player_cap
         )
@@ -154,8 +166,10 @@ class Editing_Modal(discord.ui.Modal):
             case "Game":
                 self.tournament.edit_game(new_value)
             case "Date":
+                self.tournament.edit_date_time(await unix_convert_date_time(interaction, new_value, self.tournament.time))
                 self.tournament.edit_date(new_value)
             case "Time":
+                self.tournament.edit_date_time(await unix_convert_date_time(interaction, self.tournament.date, new_value))
                 self.tournament.edit_time(new_value)
             case "Prize":
                 self.tournament.edit_prize(new_value)
