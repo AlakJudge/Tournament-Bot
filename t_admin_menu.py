@@ -2,9 +2,10 @@ from t_registration import Registration, close_registration
 from tournament import Tournament
 from t_management import update_tournament_embeds, create_tournament_embed, Delete_Confirmation_View, Edit_Options_View
 from t_registration import Reg_Msg_Modal
-from t_utils import check_tournament_admin
+from t_utils import check_tournament_admin, schedule_notifications
 from t_running import run_tournament
 import discord
+
 
 class T_Admin(discord.ui.View):
     def __init__(self, tournament:Tournament):
@@ -125,6 +126,20 @@ class T_Admin(discord.ui.View):
         
         await show_registered_users(self.tournament, interaction)
 
+    # Schedule Notifications button
+    @discord.ui.button(label="⏰ Schedule Notifications", style = discord.ButtonStyle.blurple)
+    async def schedule_notifications(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+
+        # Check if tournament chat channel exists
+        if not self.tournament.tournament_channel_id:
+            await interaction.response.send_message("Tournament chat channel does not exist. Please Open Registration to create it before scheduling a notification.", ephemeral=True)
+            return
+
+        # Schedule notifications for 24 and 2 hours before the tournament
+        await schedule_notifications(self.tournament, interaction)
+    
     # Add New Admin button
     @discord.ui.button(label="➕ Add New Admin", style = discord.ButtonStyle.blurple)
     async def add_admin(self, button: discord.ui.Button, interaction: discord.Interaction):
@@ -269,11 +284,11 @@ class Restart_Confirmation_View(discord.ui.View):
 
     @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
     async def confirm(self, button: discord.ui.Button,interaction: discord.Interaction):
-        
-        await restart_tournament(self.tournament, interaction)
         # Delete yes/no buttons view
         await self.message.delete()
-        
+
+        await restart_tournament(self.tournament, interaction)
+
     @discord.ui.button(label="No", style=discord.ButtonStyle.red)
     async def cancel(self, button: discord.ui.Button, interaction: discord.Interaction):
         # If "No" is clicked, cancel the action
@@ -297,12 +312,7 @@ async def restart_tournament(tournament:Tournament, interaction: discord.Interac
         reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
         message = await reg_channel.fetch_message(tournament.reg_msg_id)
         await message.delete()
-    if tournament.tournament_channel_msg_id and tournament.tournament_channel_id:
-        tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
-        message = await tournament_channel.fetch_message(tournament.tournament_channel_msg_id)
-        await message.delete()
-        await tournament_channel.delete()
-    elif tournament.tournament_channel_id:
+    if tournament.tournament_channel_id:
         tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
         await tournament_channel.delete()
     if tournament.participants_channel_id:
