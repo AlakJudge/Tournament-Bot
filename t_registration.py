@@ -70,9 +70,13 @@ class Registration(discord.ui.View):
         self.tournament.save()
 
         await update_tournament_embeds(self.tournament, interaction)
-        await interaction.response.send_message(f"'{player_name}' unregistered from '{self.tournament.name}'.", ephemeral=True)
         await participants_channel.send(f"----------------------------------\n"
                                         f"{player.mention} unregistered from '{self.tournament.name}'.")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"'{player_name}' unregistered from '{self.tournament.name}'.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"'{player_name}' unregistered from '{self.tournament.name}'.", ephemeral=True)
+       
     
     @discord.ui.button(label="✏️ Edit", style = discord.ButtonStyle.blurple)
     async def edit_reg(self, button: discord.ui.Button, interaction: discord.Interaction):
