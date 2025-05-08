@@ -74,7 +74,7 @@ class Registration(discord.ui.View):
         await participants_channel.send(f"----------------------------------\n"
                                         f"{player.mention} unregistered from '{self.tournament.name}'.")
     
-    @discord.ui.button(label="✏️", style = discord.ButtonStyle.blurple)
+    @discord.ui.button(label="✏️ Edit", style = discord.ButtonStyle.blurple)
     async def edit_reg(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
