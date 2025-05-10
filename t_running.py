@@ -63,7 +63,7 @@ class set_details(discord.ui.Modal):
         self.tournament.next_round() # Set round to +1
         self.tournament.save() # Save to json file
 
-        await interaction.response.send_message(f"You've selected:\nGame Size: {self.game_size} -- Min Games: {self.min_games}", ephemeral=True)
+        await interaction.response.send_message(f"You've selected:\n- Game Size: {self.game_size}\n- Min Games: {self.min_games}", ephemeral=True)
        
 # Function with the logic to divide players into brackets, create the threads and allocate the players respectively
 async def set_brackets(interaction: discord.Interaction, tournament:Tournament, game_size: int, min_games: int, t_players:list = None):

@@ -1,6 +1,6 @@
-from typing import Final
-import os
+import sys
 import discord
+import os
 from dotenv import load_dotenv
 from t_management import Create_Tournament
 from tournament import Tournament
@@ -12,10 +12,11 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 bot = discord.Bot(intents=intents)
+version = "v1.3"
 
 @bot.event
 async def on_ready():
-    print(f"{bot.user} is online - v1.3")
+    print(f"{bot.user} is online - {version}")
 
 ##########################
 # SLASH COMMANDS SECTION #
@@ -132,6 +133,377 @@ async def set_reg_channel(ctx: discord.ApplicationContext, tournament_id: int, r
     tournament.set_reg_channel(registration_channel.id)
     tournament.save()
     await ctx.respond(f"Registration channel set to {registration_channel.mention}", ephemeral=True)
+
+@bot.slash_command(name="help", description="Get help with the bot")
+async def help(ctx: discord.ApplicationContext):
+    help_embed = discord.Embed(title="Tournament Bot Help", color=discord.Color.blue())
+    help_embed.add_field( 
+        name="Description",
+        value="This bot is designed to help you create and manage tournaments in your Discord server without relying on slash commands for almost anything. "
+        "You can run and manage run tournaments smoothly with just menus and buttons.\n\n"
+        "*Use the buttons below to navigate the help menu and learn about each section of the bot.*\n**-----**\n", 
+        inline=False
+        )
+    help_embed.add_field(
+        name="🔹 Commands",
+        value="Learn about the few slash commands available.", 
+        inline=False
+    )
+    help_embed.add_field(
+        name="🔹 Tournament Setup",
+        value="Learn about how you can set up a tournament.", 
+        inline=False
+    )
+    help_embed.add_field(
+        name="🔹 Admin Menu",
+        value="Learn all about the admin menu and how to use it.", 
+        inline=False
+    )
+    help_embed.add_field(
+        name="🔹 Running the Tournament",
+        value="Learn how to run the tournament and manage players.", 
+        inline=False
+    )
+    help_embed.add_field(
+        name="🔸 Support Server",
+        value="Join our support server for help and updates: [Support Server](https://discord.gg/4vSG9VYCyj)\n"
+        "**---**",
+        inline=False
+    )
+    help_embed.set_footer(text=f"Tournament Bot - {version}")
+
+    # Create a view to hold the buttons
+    view = HelpView(help_embed)
+
+    # Show embed and buttons
+    await ctx.respond(embed=help_embed, view=view, ephemeral=True)
+
+@bot.slash_command(name="restart_bot", description="Restart the bot (Admin only)")
+async def restart(ctx: discord.ApplicationContext):
+    if not ctx.author.guild_permissions.administrator:
+        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
+        return
+
+    await ctx.respond("Restarting bot...", ephemeral=True)
+    os.execv(sys.executable, ['python'] + sys.argv)
+
+class HelpView(discord.ui.View):
+    def __init__(self, help_embed: discord.Embed):
+        super().__init__(timeout=None)
+        self.help_embed = help_embed
+        self.home_embed = self.help_embed.copy()
+    
+    @discord.ui.button(label="🏠", style=discord.ButtonStyle.green, custom_id="home", disabled=True)
+    async def home_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Update the existing embed with new content
+        self.help_embed.clear_fields()
+
+        # Change the color of the current button
+        self.manage_help_buttons(button)
+        
+        # Update the message
+        await interaction.response.edit_message(embed=self.home_embed, view=self)
+
+    @discord.ui.button(label="Commands", style=discord.ButtonStyle.blurple, custom_id="commands")
+    async def commands_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Update the existing embed with new content
+        self.help_embed.clear_fields()
+        self.help_embed.title = "Commands Help"
+        self.help_embed.description = (
+            "**Available commands:**\n"
+            "`/create` - Create a new tournament.\n"
+            "You must set the registration channel and the player capacity.\n"
+            "It also sets the player as the owner and creates both the **Admin** and **Participant** roles.\n\n"
+            "`/tournaments_list` - Show a list of all active tournaments and their IDs.\n\n"
+            "`/admin` - Open the ADMIN MENU. Needs the tournament ID.\n\n"
+            "`/set_reg_channel` - Change the registration channel after a tournament has been created.\n\n"
+            "`/help` - Get help with the bot.\n"
+            "**-----**"
+        )
+        # Change button colour, disable it and reenable the other buttons
+        self.manage_help_buttons(button)
+
+        await interaction.response.edit_message(embed=self.help_embed, view=self)
+
+    @discord.ui.button(label="Tournament Setup", style=discord.ButtonStyle.blurple, custom_id="setup")
+    async def setup_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        self.help_embed.clear_fields()
+        self.help_embed.title = "Tournament Setup Help"
+        self.help_embed.description = ("**-----**")
+        self.help_embed.add_field(
+            name="🟩 Setting up the Tournament\n\n",
+            value=(
+                "1. Use `/create` to create a new tournament."
+                "Enter the channel where you'd like the registration message to be sent and the maximum number of players in the tournament.\n"
+                "2. Note the ID of the tournament from the confirmation message. But you can always find it again using `/tournaments_list`.\n"
+                "3. Admin and Participant roles will be created automatically.\n"
+                "4. Use `/admin` + the `id` of the tournament to open the admin menu.\n\n"
+
+                "-- If necessary, change the registration channel at any time by using `/set_reg_channel`.\n\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="🟨 Restarting the tournament:\n\n",
+            value=(
+                "If you run into issues or simply want to restart the tournament:\n"
+                "1. Use `/admin` + the `id` of the tournament to open the admin menu.\n"
+                "2. Click on the `🔄Restart Tournament` button.\n"
+                "3. Wait a few seconds.\n"
+                "3. The tournament will be reset, only keeping the registered players, and you can start over.\n\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="🟥 Deleting the tournament:\n\n",
+            value=(
+                "If you want to delete the tournament:\n"
+                "1. Use `/admin` + the `id` of the tournament to open the admin menu.\n"
+                "2. Click on the `❌Delete Tournament` button.\n"
+                "3. The tournament will be deleted and all data will be lost. Including the roles, channels and messages.\n\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        # Change button colour, disable it and reenable the other buttons
+        self.manage_help_buttons(button)
+        
+        await interaction.response.edit_message(embed=self.help_embed, view=self)
+
+    @discord.ui.button(label="Admin Menu", style=discord.ButtonStyle.blurple, custom_id="admin_menu")
+    async def admin_menu_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        self.help_embed.clear_fields()
+        self.help_embed.title = "Admin Menu Help"
+        self.help_embed.description = ("**-----**")
+        self.help_embed.add_field(
+            name="📖 Open Reg",
+            value=(
+                "Create an embed with tournament information in the registration channel and allow players to register.\n"
+                "You will also be able to attach a message to go with the registration embed and buttons.\n\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="🛑 Close Reg",
+            value=(
+                "Close the registration by disabling the registration buttons.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="🟢 Start Tournament",
+            value=(
+                "Close Registration and Start the tournament. This will allow you to set 2 parameters:\n"
+                "- Maximum number of players per game in the first round.\n"
+                "- Minimum number of games in the first round.\n"
+                "These parameters will give you control over how many players will be in each game and how many games will be played in the first round.\n\n"
+                "*E.g., if you have 10 players and set the maximum number of players per game to 3, the bot will create 4 games with 3, 3, 2 and 2 players.*\n"
+                "*However, if you set the minimum number of games to 5, the bot will create 5 games with 2 players in each one.*\n\n"
+                "The bot will then create private match threads in the tournament channel, add the respective players, and send a message with the match information.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="📄 Edit Info",
+            value=(
+                "Edit tournament information. This will allow you to modify the following:\n"
+                "Tournament name, Game name, Date, Time, Prize and Player Capacity.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="📝 Edit Match Intro",
+            value=(
+                "Edit the message that will be sent to the players in the match thread.\n"
+                "This message will be sent when the tournament starts and when a new round starts.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="👥 Player List",
+            value=(
+                "Show a list of all players registered for the tournament.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="⏰ Notifications",
+            value=(
+                "Activate notifications that will be sent 24 hours and 2 hours before the tournament begins.\n"
+                "*This will be editable in the future.*\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="➕ Add New Admin",
+            value=(
+                "Add a new admin to the tournament. This will give the user the Tournament Admin role.\n"
+                "*A new admin has the same permissions as the owner, but cannot add or remove other Admins.*\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="➖ Remove Admin",
+            value=(
+                "Remove existing Admins from the tournament. This will remove the Admin role from the user.\n"
+                "*Only the owner can do this.*\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="🔄 Restart Tournament",
+            value=(
+                "Resets the tournament and allows you to start over.\n"
+                "*This will keep the registered players and roles, but all other data will be lost, including the tournament channels.*\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="❌ Delete Tournament",
+            value=(
+                "Delete the tournament. This will delete all data related to the tournament.\n"
+                "*This includes the player registry, roles, channels and messages.*\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        # Change button colour, disable it and reenable the other buttons
+        self.manage_help_buttons(button)
+
+        await interaction.response.edit_message(embed= self.help_embed, view=self)
+
+    @discord.ui.button(label="Running the Tournament", style=discord.ButtonStyle.blurple, custom_id="running")
+    async def running_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        self.help_embed.clear_fields()
+        self.help_embed.title = "Running the Tournament Help"
+        self.help_embed.description = ("**----**")
+        self.help_embed.add_field(
+            name="🔹 IN THE TOURNAMENT CHANNEL 🔹",
+            value=(
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="🏁 Go to Next Round",
+            value=(
+                " Proceed to next round with all the current match winners.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="➕ Add Player to Match",
+            value=(
+                "Manually add a player to the match. This uses the player's **Username** and not Display Name.\n"
+                "You'll need the Match ID. It's formatted like this: `R(round number)-G(game number)`.\n"
+                "E.g., `R1-G2` for Game 2 of Round 1.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="🏅 Set Match Winner",
+            value=(
+                "Manually set a winner of a specific match. This will use the player's **Username** and not Display Name.\n"
+                "You'll need the Match ID. It's formatted like this: `R(round number)-G(game number)`.\n"
+                "E.g., `R1-G2` for Game 2 of Round 1.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="📣 Announcement",
+            value=(
+                "Send a message to all active game threads.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="✅ Ready Check All Games",
+            value=(
+                "Send a ready check message to all active game threads.\n"
+                "Players will have 5 minutes to confirm they're ready to start before getting tagged.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="⏳ Show Pending Matches",
+            value=(
+                "Show a list of all matches without a winner and the players in each one of them.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="🔸 IN THE GAME THREADS 🔸",
+            value=(
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="🏁 Start Match",
+            value=(
+                "This will inform players the match has started and open a drop-down menu you can use to select the winner(s).\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="➕ Add Reserve",
+            value=(
+                "Add the first player from the reserve pool to this match.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="⏩ Transfer Player",
+            value=(
+                "Transfer a player from one match to another.\n"
+                "This will open a drop-down menu with all the players in this match.\n"
+                "You'll need the destination Match ID. It's formatted like this: `R(round number)-G(game number)`.\n"
+                "E.g., `R1-G2` for Game 2 of Round 1.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="✅ Ready Check",
+            value=(
+                "Send a ready check message to all players in this match.\n"
+                "Players will have 5 minutes to confirm they're ready to start before getting tagged.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        # Change button colour, disable it and reenable the other buttons
+        self.manage_help_buttons(button)
+
+        await interaction.response.edit_message(embed=self.help_embed, view=self)
+
+    # Function to reenable all buttons
+    def manage_help_buttons(self, current_button: discord.ui.Button):
+        for button in self.children:
+            button.style = discord.ButtonStyle.blurple
+            button.disabled = False
+        current_button.style = discord.ButtonStyle.green
+        current_button.disabled = True
 
 # Create tournaments-lounge channel when joining the server
 @bot.event
