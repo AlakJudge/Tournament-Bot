@@ -178,15 +178,6 @@ async def help(ctx: discord.ApplicationContext):
     # Show embed and buttons
     await ctx.respond(embed=help_embed, view=view, ephemeral=True)
 
-@bot.slash_command(name="restart_bot", description="Restart the bot (Admin only)")
-async def restart(ctx: discord.ApplicationContext):
-    if not ctx.author.guild_permissions.administrator:
-        await ctx.respond("You do not have permission to use this command.", ephemeral=True)
-        return
-
-    await ctx.respond("Restarting bot...", ephemeral=True)
-    os.execv(sys.executable, ['python'] + sys.argv)
-
 class HelpView(discord.ui.View):
     def __init__(self, help_embed: discord.Embed):
         super().__init__(timeout=None)
