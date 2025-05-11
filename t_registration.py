@@ -43,6 +43,9 @@ class Registration(discord.ui.View):
 
     @discord.ui.button(label="Unregister", style = discord.ButtonStyle.red)
     async def unregister(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Defer the interaction to prevent timeout
+        await interaction.response.defer(ephemeral=True)
+        
         player_name = interaction.user.name
         player = discord.utils.get(interaction.guild.members, name=player_name) 
         participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
