@@ -53,7 +53,7 @@ class Registration(discord.ui.View):
 
         # Check if player is registered
         if player_name not in self.tournament.players and player_name not in self.tournament.reserves:
-            await interaction.response.send_message(f"Failed. '{player_name}' is not registered to '{self.tournament.name}'.", ephemeral=True)
+            await interaction.followup.send(f"Failed. '{player_name}' is not registered to '{self.tournament.name}'.", ephemeral=True)
             return
 
         # Remove participant role from user
@@ -73,7 +73,7 @@ class Registration(discord.ui.View):
         self.tournament.save()
 
         await update_tournament_embeds(self.tournament, interaction)
-        await interaction.response.send_message(f"'{player_name}' unregistered from '{self.tournament.name}'.", ephemeral=True)
+        await interaction.followup.send(f"'{player_name}' unregistered from '{self.tournament.name}'.", ephemeral=True)
         await participants_channel.send(f"----------------------------------\n"
                                         f"{player.mention} unregistered from '{self.tournament.name}'.")
        
