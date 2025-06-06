@@ -286,7 +286,6 @@ class Restart_Confirmation_View(discord.ui.View):
     async def confirm(self, button: discord.ui.Button,interaction: discord.Interaction):
         # Delete yes/no buttons view
         await self.message.delete()
-
         await restart_tournament(self.tournament, interaction)
 
     @discord.ui.button(label="No", style=discord.ButtonStyle.red)
@@ -304,14 +303,17 @@ async def restart_tournament(tournament:Tournament, interaction: discord.Interac
     # Close registration if it is open
     if tournament.reg_status == "Open":
         await close_registration(interaction, tournament)
-    await update_tournament_embeds(tournament, interaction)
+        await update_tournament_embeds(tournament, interaction)
 
     # Delete all messages and channels related to the tournament, if they exist.
     # Except the admin message and reg channel ID
     if tournament.reg_msg_id:
         reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
-        message = await reg_channel.fetch_message(tournament.reg_msg_id)
-        await message.delete()
+        try:
+            message = await reg_channel.fetch_message(tournament.reg_msg_id)
+            await message.delete()
+        except discord.NotFound:
+            pass
     if tournament.tournament_channel_id:
         tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
         await tournament_channel.delete()

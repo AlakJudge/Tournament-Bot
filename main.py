@@ -12,7 +12,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 bot = discord.Bot(intents=intents)
-version = "v1.3"
+version = "v1.4"
 
 @bot.event
 async def on_ready():
@@ -27,24 +27,24 @@ async def on_ready():
 async def create(
     ctx: discord.ApplicationContext,
     registration_channel = discord.Option(
-        discord.abc.GuildChannel, # Allow any channel type
+        discord.TextChannel,  # Only allow text channels
         description="The channel where player registration for the tournament will take place",
         channel_types=[discord.ChannelType.text, discord.ChannelType.news]
         ),
-    player_cap: int = discord.Option(
+    player_cap = discord.Option(
         int, # Only allows integers
         description="The maximum number of players that can register for the tournament (before reserves are added)"
         )):
     
     # Only allow users with this permission to admin tournaments
     user: discord.Member = ctx.guild.get_member(ctx.user.id)
-    organizer_role: discord.Role = discord.utils.get(ctx.guild.roles, name="BGTB Organizer")
+    organizer_role: discord.Role | None = discord.utils.get(ctx.guild.roles, name="BGTB Organizer")
     if organizer_role not in user.roles and not user.guild_permissions.administrator:
         await ctx.respond("Failed. You must have the 'BGTB Organizer' role to perform this action.", ephemeral=True)
         return   
 
     # Set permissions for bot to manage the registration channel
-    overwrites = registration_channel.overwrites_for(ctx.guild.me)
+    overwrites = discord.PermissionOverwrite()
     overwrites.send_messages = True
     overwrites.read_messages = True
     overwrites.read_message_history = True
@@ -140,7 +140,7 @@ async def help(ctx: discord.ApplicationContext):
     help_embed.add_field( 
         name="Description",
         value="This bot is designed to help you create and manage tournaments in your Discord server without relying on slash commands for almost anything. "
-        "You can run and manage run tournaments smoothly with just menus and buttons.\n\n"
+        "You can run and manage tournaments smoothly with just menus and buttons.\n\n"
         "*Use the buttons below to navigate the help menu and learn about each section of the bot.*\n**-----**\n", 
         inline=False
         )

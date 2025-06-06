@@ -104,14 +104,13 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
         embed = create_tournament_embed(tournament)
         tournament_channel_msg = await tournament_channel.send(embeds=[embed], view=running_view)
         await tournament_channel_msg.pin()
-        await tournament_channel.send(f"# Registration for '{tournament.name}' is open. GOOD LUCK! :fire:")
+        await tournament_channel.send(f"# '{tournament.name}' is about to start. GOOD LUCK! :fire:")
         # Save id of that embed
         tournament.tournament_channel_msg_id = tournament_channel_msg.id
-        
     else:
         # Close all active threads if it's not Round 1
         await lock_all_threads(interaction, tournament_channel, tournament.round-1)
-
+    
     # Distribute players evenly into matches
     for index, game in enumerate(games):
         # Set match id
@@ -469,7 +468,7 @@ class Tournament_Running_View(discord.ui.View):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
             return
-        
+                
         # Modal to collect user announcement, then send it to all active threads
         await interaction.response.send_modal(Announcement_Modal(self.tournament))
 
@@ -482,16 +481,25 @@ class Tournament_Running_View(discord.ui.View):
         # List to store view, thread, and match_players for each match
         ready_check_data = []   
 
+        await interaction.response.defer()
+
+        # Prepare list of coroutines for ready_check
+        ready_check_coros = []
         for match in self.tournament.matches:
             thread = discord.utils.get(interaction.guild.threads, id=match["thread_id"])
             if not thread.locked:
-                view, thread, match_players = await ready_check(interaction, self.tournament, match["id"])
-                ready_check_data.append((view, thread, match_players))
-                
-        if interaction.response.is_done():
-            await interaction.followup.send("Ready check sent to all players.", ephemeral=True)
-        else:
-            await interaction.response.send_message("Ready check sent to all players.", ephemeral=True)
+                ready_check_coros.append(ready_check(interaction, self.tournament, match["id"]))
+
+        # Run all ready checks concurrently
+        ready_check_results = await asyncio.gather(*ready_check_coros)
+
+        # Collect results into ready_check_data
+        ready_check_data = [
+            (view, thread, match_players)
+            for (view, thread, match_players) in ready_check_results
+        ]
+
+        await interaction.followup.send("Ready check sent to all players.", ephemeral=True)
 
         # Wait 5 mins, then tag all players not ready yet in each active thread
         tasks = [
@@ -724,5 +732,11 @@ class Announcement_Modal(discord.ui.Modal):
 
     async def callback(self, interaction: discord.Interaction):
         message = self.children[0].value
-        await send_announcement(interaction, self.tournament, message, "threads")
-        await interaction.response.send_message(f"Announcement sent to all active game threads.", ephemeral=True)
+        await interaction.response.send_message("Sending announcement to all threads...", ephemeral=True)
+
+        # await send_announcement(interaction, self.tournament, message, "threads")
+        threads = [discord.utils.get(interaction.guild.threads, id=match["thread_id"])
+            for match in self.tournament.matches if match.get("thread_id")]
+        # Send concurrently
+        await asyncio.gather(*(thread.send(message) for thread in threads if thread))
+        await interaction.followup.send(f"Announcement sent to all active game threads.", ephemeral=True)

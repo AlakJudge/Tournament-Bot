@@ -167,18 +167,25 @@ async def close_registration(interaction: discord.Interaction, tournament: Tourn
             await interaction.response.send_message("Registration message not found.", ephemeral=True)
     else:
         reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
-        reg_msg = await reg_channel.fetch_message(tournament.reg_msg_id)
-        reg_embed = reg_msg.embeds[0]
-        registration_view = Registration(tournament)
+        try:
+            reg_msg = await reg_channel.fetch_message(tournament.reg_msg_id)
+            reg_embed = reg_msg.embeds[0]
+            registration_view = Registration(tournament)
+            
+            # Disable all buttons in the view
+            for item in registration_view.children:
+                if isinstance(item, discord.ui.Button):
+                    item.disabled = True
+            
+            # Update the original message to disable buttons
+            await reg_msg.edit(view=registration_view, embed=reg_embed)
         
-        # Disable all buttons in the view
-        for item in registration_view.children:
-            if isinstance(item, discord.ui.Button):
-                item.disabled = True
-        
-        # Update the original message to disable buttons
-        await reg_msg.edit(view=registration_view, embed=reg_embed)
-    
+        except discord.NotFound:
+            if interaction.response.is_done():
+                await interaction.followup.send("Registration message not found.", ephemeral=True)
+            else:
+                await interaction.response.send_message("Registration message not found.", ephemeral=True)
+       
     # Edit registration status
     tournament.edit_reg_status("Closed")
     tournament.save()

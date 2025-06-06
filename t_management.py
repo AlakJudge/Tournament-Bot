@@ -27,6 +27,8 @@ class Create_Tournament(discord.ui.Modal):
         
         # Validate and convert date and time to a Discord timestamp format and save it
         formatted_date_time = await unix_convert_date_time(interaction, date, time)
+        if not formatted_date_time:
+            return
 
         tournament =  create_tournament(
             name=name, 
@@ -203,9 +205,15 @@ async def update_tournament_embeds(t:Tournament, interaction):
     # Edit registration embed in the designated registration channel
     if tournament.reg_msg_id:
         reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel) # Get the channel set for registration
-        message = await reg_channel.fetch_message(tournament.reg_msg_id) # Get the message with the registration details
-        await message.edit(embed=new_embed) 
-    
+        try:
+            message = await reg_channel.fetch_message(tournament.reg_msg_id) # Get the message with the registration details
+            await message.edit(embed=new_embed)
+        except discord.NotFound:
+            if interaction.response.is_done():
+                await interaction.followup.send("Registration message not found.", ephemeral=True)
+            else:
+                await interaction.response.send_message("Registration message not found.", ephemeral=True)            
+
     # Edit the tournament embed in the tournament lounge channel
     tournaments_lounge = discord.utils.get(interaction.guild.text_channels, name="🏆tournaments-lounge")
     admin_message = await tournaments_lounge.fetch_message(tournament.admin_msg_id)
@@ -231,8 +239,11 @@ class Delete_Confirmation_View(discord.ui.View):
         # Delete all messages related to the tournament, if they exist
         if self.tournament.reg_msg_id:
             reg_channel = await interaction.guild.fetch_channel(self.tournament.reg_channel)
-            message = await reg_channel.fetch_message(self.tournament.reg_msg_id)
-            await message.delete()
+            try:
+                reg_msg = await reg_channel.fetch_message(self.tournament.reg_msg_id)
+                await reg_msg.delete()
+            except discord.NotFound:
+                pass
         if self.tournament.admin_msg_id:
             admin_message =  await interaction.channel.fetch_message(self.tournament.admin_msg_id)
             await admin_message.delete()
