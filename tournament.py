@@ -6,12 +6,13 @@ json_file_path = os.path.join(current_dir, "tournaments.json")
 
 class Tournament:
     def __init__(self, id, name, game, date, time, date_time, prize, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
-                 reg_channel=None, reg_msg_id=None, admin_msg_id=None, owner=None, tournament_channel_id=None, tournament_channel_msg_id=None, 
+                 reg_channel=None, reg_msg_id=None, admin_msg_channel_id=None, admin_msg_id=None, owner=None, tournament_channel_id=None, tournament_channel_msg_id=None, 
                  participants_channel_id=None, curr_num_matches=None, players=None, reserves=None, tournament_winner=None, matches=None):
         self.id = id
         self.reg_channel = reg_channel
         self.reg_msg_id = reg_msg_id
         self.reg_status = reg_status
+        self.admin_msg_channel_id = admin_msg_channel_id
         self.admin_msg_id = admin_msg_id
         self.tournament_channel_id = tournament_channel_id
         self.tournament_channel_msg_id = tournament_channel_msg_id
@@ -121,6 +122,7 @@ class Tournament:
                 if t.id == self.id:
                     t.reg_channel = self.reg_channel
                     t.reg_msg_id = self.reg_msg_id
+                    t.admin_msg_channel_id = self.admin_msg_channel_id
                     t.admin_msg_id = self.admin_msg_id
                     t.reg_status = self.reg_status
                     t.tournament_channel_id = self.tournament_channel_id
@@ -172,6 +174,7 @@ class Tournament:
                                 reg_channel=item["reg_channel"],
                                 reg_msg_id=item["reg_msg_id"],
                                 reg_status=item["reg_status"],
+                                admin_msg_channel_id=item.get("admin_msg_channel_id"),
                                 admin_msg_id=item["admin_msg_id"],
                                 tournament_channel_id=item["tournament_channel_id"],
                                 tournament_channel_msg_id=item["tournament_channel_msg_id"],
