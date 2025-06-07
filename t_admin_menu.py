@@ -16,7 +16,7 @@ class T_Admin(discord.ui.View):
         return create_tournament_embed(self.tournament)
     
     # Open Registration button
-    @discord.ui.button(label="📖 Open Reg", style = discord.ButtonStyle.green)
+    @discord.ui.button(label="📖 Open Reg", style = discord.ButtonStyle.green, custom_id="open_reg_button")
     async def open_reg(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -80,7 +80,7 @@ class T_Admin(discord.ui.View):
             await update_tournament_embeds(self.tournament, interaction)       
 
     # Close Registration button
-    @discord.ui.button(label="🛑 Close Reg", style = discord.ButtonStyle.red)
+    @discord.ui.button(label="🛑 Close Reg", style = discord.ButtonStyle.red, custom_id="close_reg_button")
     async def close_reg(self, button: discord.ui.Button, interaction: discord.Interaction): 
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -94,14 +94,14 @@ class T_Admin(discord.ui.View):
         await close_registration(interaction=interaction, tournament=self.tournament)
 
     # Start Tournament button
-    @discord.ui.button(label="🟢 Start Tournament", style = discord.ButtonStyle.green)
+    @discord.ui.button(label="🟢 Start Tournament", style = discord.ButtonStyle.green, custom_id="start_tournament_button")
     async def t_run(self, button: discord.ui.Button, interaction: discord.Interaction):  
         if not await check_tournament_admin(interaction, self.tournament):
             return 
         await run_tournament(self.tournament, interaction)        
 
     # Edit Tournament button
-    @discord.ui.button(label="📄 Edit Info", style = discord.ButtonStyle.blurple)
+    @discord.ui.button(label="📄 Edit Info", style = discord.ButtonStyle.blurple, custom_id="edit_info_button")
     async def edit_tournament(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -109,7 +109,7 @@ class T_Admin(discord.ui.View):
         await interaction.response.send_message("", view=view, ephemeral=True)
 
     # Add new thread message
-    @discord.ui.button(label="📝 Edit Match Intro", style = discord.ButtonStyle.blurple)
+    @discord.ui.button(label="📝 Edit Match Intro", style = discord.ButtonStyle.blurple, custom_id="edit_match_intro_button")
     async def add_thread_msg(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -119,7 +119,7 @@ class T_Admin(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     # Show list of registered users
-    @discord.ui.button(label="👥 Player List", style = discord.ButtonStyle.blurple)
+    @discord.ui.button(label="👥 Player List", style = discord.ButtonStyle.blurple, custom_id="player_list_button")
     async def show_reg(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -127,7 +127,7 @@ class T_Admin(discord.ui.View):
         await show_registered_users(self.tournament, interaction)
 
     # Schedule Notifications button
-    @discord.ui.button(label="⏰ Notifications", style = discord.ButtonStyle.blurple)
+    @discord.ui.button(label="⏰ Notifications", style = discord.ButtonStyle.blurple, custom_id="schedule_notifications_button")
     async def schedule_notifications(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -141,7 +141,7 @@ class T_Admin(discord.ui.View):
         await schedule_notifications(self.tournament, interaction)
     
     # Add New Admin button
-    @discord.ui.button(label="➕ Add New Admin", style = discord.ButtonStyle.blurple)
+    @discord.ui.button(label="➕ Add New Admin", style = discord.ButtonStyle.blurple, custom_id="add_admin_button")
     async def add_admin(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -151,7 +151,7 @@ class T_Admin(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     # Rmove Admin button
-    @discord.ui.button(label="➖ Remove Admin", style = discord.ButtonStyle.blurple)
+    @discord.ui.button(label="➖ Remove Admin", style = discord.ButtonStyle.blurple, custom_id="remove_admin_button")
     async def remove_admin(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -166,7 +166,7 @@ class T_Admin(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     # Restart the tournament - Delete everything but the registered players/reserves and base info data
-    @discord.ui.button(label="🔄 Restart Tournament", style = discord.ButtonStyle.blurple)
+    @discord.ui.button(label="🔄 Restart Tournament", style = discord.ButtonStyle.blurple, custom_id="restart_tournament_button")
     async def restart_tournament(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -174,7 +174,7 @@ class T_Admin(discord.ui.View):
         await interaction.response.send_message(f"Are you sure you want to **RESTART** '{self.tournament.name}'?", view=view)
 
     # Delete Tournament button
-    @discord.ui.button(label="❌ Delete Tournament", style = discord.ButtonStyle.red)
+    @discord.ui.button(label="❌ Delete Tournament", style = discord.ButtonStyle.red, custom_id="delete_tournament_button") 
     async def delete_tournament(self,  button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
