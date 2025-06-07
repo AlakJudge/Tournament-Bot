@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from t_management import Create_Tournament
 from tournament import Tournament
 from t_admin_menu import T_Admin
+from t_persistant_views import restore_all_views
 
 load_dotenv()
 
@@ -17,6 +18,13 @@ version = "v1.4"
 @bot.event
 async def on_ready():
     print(f"{bot.user} is online - {version}")
+    # Restore all views when the bot is ready
+    try:
+        await restore_all_views(bot)
+    except Exception as e:
+        print(f"Failed to restore views: {e}")
+
+
 
 ##########################
 # SLASH COMMANDS SECTION #
@@ -97,6 +105,7 @@ async def admin(ctx: discord.ApplicationContext, id:int = discord.Option(descrip
 
     admin_msg = await ctx.interaction.original_response()  
     tournament.admin_msg_id = admin_msg.id
+    tournament.admin_msg_channel_id = admin_msg.channel.id
     tournament.save()
 
 # Slash command to set registration channel
