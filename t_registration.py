@@ -8,12 +8,15 @@ class Registration(discord.ui.View):
         super().__init__(timeout=None)
         self.tournament = tournament
     
-    @discord.ui.button(label="Register", style = discord.ButtonStyle.green)
+    @discord.ui.button(label="Register", style = discord.ButtonStyle.green, custom_id="register_button")
     async def register(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Get user and participants channel
         player_name = interaction.user.name
         player = discord.utils.get(interaction.guild.members, name=player_name) 
         participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
+        # Reload the latest tournament data
+        tournament = Tournament.load_tournament_by_name(self.tournament.name)
+        self.tournament = tournament 
 
         # Get tournament details and check if the user is already registered. Stop duplicate register if so.
         if player_name in self.tournament.players or player_name in self.tournament.reserves:
@@ -41,7 +44,7 @@ class Registration(discord.ui.View):
         await participants_channel.send(f"----------------------------------\n"
                                         f"{player.mention} registered to '{self.tournament.name}' successfully.", view=k_view)
 
-    @discord.ui.button(label="Unregister", style = discord.ButtonStyle.red)
+    @discord.ui.button(label="Unregister", style = discord.ButtonStyle.red, custom_id="unregister_button")
     async def unregister(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Defer the interaction to prevent timeout
         await interaction.response.defer(ephemeral=True)
@@ -78,7 +81,7 @@ class Registration(discord.ui.View):
                                         f"{player.mention} unregistered from '{self.tournament.name}'.")
        
     
-    @discord.ui.button(label="✏️ Edit", style = discord.ButtonStyle.blurple)
+    @discord.ui.button(label="✏️ Edit", style = discord.ButtonStyle.blurple, custom_id="edit_reg_button")
     async def edit_reg(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -125,8 +128,11 @@ class kick_view(discord.ui.View):
         self.tournament = tournament
         self.player_name = player_name
 
-    @discord.ui.button(label="Kick", style=discord.ButtonStyle.red)
+    @discord.ui.button(label="Kick", style=discord.ButtonStyle.red, custom_id="kick_button")
     async def kick_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Reload the latest tournament data
+        tournament = Tournament.load_tournament_by_name(self.tournament.name)
+        self.tournament = tournament  # Update the view's reference
         # Get necessary user and channels
         player = discord.utils.get(interaction.guild.members, name=self.player_name)
         participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
@@ -139,7 +145,7 @@ class kick_view(discord.ui.View):
         # Unregister the player from the tournament
         if self.player_name in self.tournament.players:
             self.tournament.unregister_player(self.player_name)
-            if move_reserve_to_player(self.tournament):
+            if await move_reserve_to_player(self.tournament):
                 # Send message to tournament channel saying who was promoted from reserve to player
                 promoted_player = discord.utils.get(interaction.guild.members, name=self.tournament.players[-1])
                 await tournament_channel.send(f"**{promoted_player.mention} has been promoted from reserve to player!**")
