@@ -27,15 +27,15 @@ async def move_reserve_to_player(tournament: Tournament):
 
 # Convert date and time to a Discord timestamp format and save it
 async def unix_convert_date_time(interaction, date: str, time: str) -> str:
-    # Validate date (DD/MM/YYYY format)
+    # Validate date (DD/MM/YYYY or DDMMYYYY format)
     try:
         parsed_date = datetime.strptime(date, "%d/%m/%Y")
-        if parsed_date <= datetime.now():
-            await interaction.response.send_message("The date has to be in the future. Please try again.", ephemeral=True)
-            return
     except ValueError:
-        await interaction.response.send_message("Invalid date format. Please use 'DD/MM/YYYY'.", ephemeral=True)
-        return
+        try:
+            parsed_date = datetime.strptime(date, "%d%m%Y")
+        except ValueError:
+            await interaction.response.send_message("Invalid date format. Please use 'DD/MM/YYYY'.", ephemeral=True)
+            return
     
     # Validate time (24-hour format)
     try:
@@ -45,6 +45,10 @@ async def unix_convert_date_time(interaction, date: str, time: str) -> str:
         return
 
     combined_datetime = datetime.combine(parsed_date.date(), parsed_time.time())
+    if combined_datetime <= datetime.now():
+        await interaction.response.send_message("The date and time must be in the future. Please try again.", ephemeral=True)
+        return
+    
     unix_timestamp = int(combined_datetime.timestamp()) # Convert to Unix timestamp
     formatted_date_time = f"<t:{unix_timestamp}:F>" # Format: <t:unix_timestamp:F> for full date and time
     return formatted_date_time
