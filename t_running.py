@@ -19,7 +19,7 @@ tournament_lock = asyncio.Lock()
 #####################
 # Function that controls the flow of the tournament
 async def run_tournament(t:Tournament, interaction: discord.Interaction):
-    tournament: Tournament = Tournament.load_tournament_by_name(t.name)
+    tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, t.name)
 
     # Only collect details for next round if there's no final winner yet
     if not tournament.tournament_winner: 
@@ -194,7 +194,7 @@ class Start_Match_View(discord.ui.View):
         if not await check_tournament_admin(interaction, self.tournament):
             return
         
-        self.tournament = Tournament.load_tournament_by_name(self.tournament.name) # update tournament info from file
+        self.tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name) # update tournament info from file
 
         winner_view = Select_Winner_View(self.tournament, self.match_id)
         await interaction.response.send_message(f"Match Started! Once it's over, an Admin will select the winner below.", view=winner_view)
@@ -377,7 +377,7 @@ class Select_Winner_Menu(discord.ui.Select):
             if not await check_tournament_admin(interaction, self.tournament):
                 return
             
-            self.tournament = Tournament.load_tournament_by_name(self.tournament.name) # update tournament info from file
+            self.tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name) # update tournament info from file
 
             winners = [discord.utils.get(interaction.guild.members, name=value) for value in self.values]
             mentions = ", ".join(winner.mention for winner in winners)
@@ -503,7 +503,7 @@ class Tournament_Running_View(discord.ui.View):
         
         await run_tournament(self.tournament, interaction) # Start the next round of the tournament
         
-        self.tournament = Tournament.load_tournament_by_name(self.tournament.name) # Update tournament data
+        self.tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name) # Update tournament data
        
         # Refresh the view/buttons in the tournament channel
         tournament_channel = discord.utils.get(interaction.guild.text_channels, id=self.tournament.tournament_channel_id)
@@ -583,7 +583,7 @@ class Tournament_Running_View(discord.ui.View):
     @discord.ui.button(label="⏳ Show Pending Matches", style=discord.ButtonStyle.blurple, custom_id="show_pending_matches_button")
     async def show_pending_matches(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Update tournament data
-        tournament: Tournament = Tournament.load_tournament_by_name(self.tournament.name)
+        tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name)
 
         # Filter matches to get only those from the current round
         last_round = max(int(match["id"].split('-')[0][1:]) for match in tournament.matches)# Determine the last round number
@@ -693,7 +693,7 @@ class Set_Winner_Modal(discord.ui.Modal):
     async def callback(self, interaction: discord.Interaction):
         player = self.children[0].value
         match_id = self.children[1].value
-        tournament: Tournament = Tournament.load_tournament_by_name(self.tournament.name) # update tournament data from file
+        tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name) # update tournament data from file
         success = await set_match_winner(interaction, tournament, match_id, player)
 
         if success:

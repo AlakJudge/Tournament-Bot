@@ -22,7 +22,7 @@ class T_Admin(discord.ui.View):
         if not await check_tournament_admin(interaction, self.tournament):
             return
         # Update tournament data
-        self.tournament: Tournament = Tournament.load_tournament_by_name(self.tournament.name)
+        self.tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name)
 
         registration_view = Registration(self.tournament)
         reg_channel = await interaction.guild.fetch_channel(self.tournament.reg_channel)
@@ -250,7 +250,7 @@ class Thread_Msg_Modal(discord.ui.Modal):
             required=True))
 
     async def callback(self, interaction: discord.Interaction):
-        self.tournament: Tournament = Tournament.load_tournament_by_name(self.tournament.name) # Update tournament data
+        self.tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name) # Update tournament data
         msg_content = self.children[0].value
         self.tournament.edit_thread_msg(msg_content)
         self.tournament.save()
@@ -260,7 +260,7 @@ class Thread_Msg_Modal(discord.ui.Modal):
 # Function to show list of registered users
 async def show_registered_users(t: Tournament, interaction: discord.Interaction):
     # Get updated tournament data
-    tournament: Tournament = Tournament.load_tournament_by_name(t.name)
+    tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, t.name)
     # Get the list of registered players
     players = tournament.players
     reserves = tournament.reserves
@@ -296,7 +296,7 @@ class Restart_Confirmation_View(discord.ui.View):
 
 async def restart_tournament(tournament:Tournament, interaction: discord.Interaction):
     # Update tournament data
-    tournament: Tournament = Tournament.load_tournament_by_name(tournament.name)
+    tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, tournament.name)
     
     await interaction.response.defer()
 

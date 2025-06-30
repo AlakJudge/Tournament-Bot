@@ -38,7 +38,8 @@ class Create_Tournament(discord.ui.Modal):
             time=time,
             date_time=formatted_date_time,
             prize=prize, 
-            player_cap=self.player_cap
+            player_cap=self.player_cap,
+            guild_id=interaction.guild.id
         )
         tournament_creation_embed = create_tournament_embed(tournament) # Create the embed with the tournament details
 
@@ -72,7 +73,7 @@ def create_tournament_embed(tournament:Tournament):
 
 # Create the new tournament and save to file
 def create_tournament(name, reg_channel, game, date, time, date_time, prize, player_cap: int):
-    tournaments = Tournament.load_all_tournaments()
+    tournaments = Tournament.load_all_tournaments(reg_channel.guild.id)
     # Set the tournament ID
     if tournaments:
         id = max([int(t.id) for t in tournaments]) + 1
@@ -193,13 +194,16 @@ class Editing_Modal(discord.ui.Modal):
                         tournament_channel = await interaction.guild.fetch_channel(self.tournament.tournament_channel_id)
                         await tournament_channel.send(f"**{promoted_player.mention} has been promoted from reserve to player!**")
 
-        await interaction.response.send_message(f"{self.field} updated to {new_value}.", ephemeral=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"{self.field} updated to {new_value}.", ephemeral=True)
+        else:
+            await interaction.followup.send(f"{self.field} updated to {new_value}.", ephemeral=True)
         self.tournament.save()
         await update_tournament_embeds(self.tournament, interaction)
 
 # Edit the tournament embeds
-async def update_tournament_embeds(t:Tournament, interaction):
-    tournament: Tournament = Tournament.load_tournament_by_name(t.name)
+async def update_tournament_embeds(t:Tournament, interaction: discord.Interaction):
+    tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, t.name)
     new_embed = create_tournament_embed(tournament)
 
     # Edit registration embed in the designated registration channel

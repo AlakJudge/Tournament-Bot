@@ -14,7 +14,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 bot = discord.Bot(intents=intents)
-version = "v1.5"
+version = "v1.6"
 
 @bot.event
 async def on_ready():
@@ -24,6 +24,7 @@ async def on_ready():
         await restore_all_views(bot)
     except Exception as e:
         print(f"Failed to restore views: {e}")
+        
     # Force sync slash commands
     await bot.sync_commands(guild_ids=[1286841607576092763])
     
@@ -75,7 +76,7 @@ async def create(
 # Slash command to display a LIST OF ALL ACTIVE TOURNAMENTS
 @bot.slash_command(name="tournaments_list", description="Show a list of all active tournaments and their ID numbers")
 async def tournament_list(ctx: discord.ApplicationContext):
-    tournaments = Tournament.load_all_tournaments()
+    tournaments = Tournament.load_all_tournaments(ctx.guild.id)
     list = discord.Embed(title="List of Tournaments", color=discord.Color.blue())
 
     # Loop to add each tournament from the tournaments list
@@ -88,7 +89,7 @@ async def tournament_list(ctx: discord.ApplicationContext):
 async def admin(ctx: discord.ApplicationContext, id:int = discord.Option(description="Find this ID number by using the tournaments_list command")):
     await ctx.defer() 
     # Find the tournament
-    tournaments = Tournament.load_all_tournaments()
+    tournaments = Tournament.load_all_tournaments(ctx.guild.id)
     tournament: Tournament = next((t for t in tournaments if t.id == int(id)), None) # Go through all tournaments and find the id entered.
 
     if not tournament:
@@ -119,7 +120,7 @@ async def set_reg_channel(ctx: discord.ApplicationContext, tournament_id: int, r
         channel_types=[discord.ChannelType.text, discord.ChannelType.news]
         )):
     # Get tournament
-    tournaments = Tournament.load_all_tournaments()
+    tournaments = Tournament.load_all_tournaments(ctx.guild.id)
     tournament: Tournament = next((t for t in tournaments if t.id == int(tournament_id)), None)
     if not tournament:
         await ctx.respond("Tournament not found.", ephemeral=True)
@@ -155,7 +156,7 @@ async def reload_thread_buttons(ctx: discord.ApplicationContext):
     
     # Get the channel ID of the parent channel of the current thread, then get the tournament
     parent_channel_id = ctx.channel.parent_id 
-    tournaments = Tournament.load_all_tournaments()
+    tournaments = Tournament.load_all_tournaments(ctx.guild.id)
     tournament: Tournament = next((t for t in tournaments if t.tournament_channel_id == parent_channel_id), None) 
     if not tournament:
         await ctx.respond("Tournament not found.", ephemeral=True)

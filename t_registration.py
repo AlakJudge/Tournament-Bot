@@ -15,7 +15,7 @@ class Registration(discord.ui.View):
         player = discord.utils.get(interaction.guild.members, name=player_name) 
         participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
         # Reload the latest tournament data
-        tournament = Tournament.load_tournament_by_name(self.tournament.name)
+        tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name)
         self.tournament = tournament 
 
         # Get tournament details and check if the user is already registered. Stop duplicate register if so.
@@ -131,7 +131,7 @@ class kick_view(discord.ui.View):
     @discord.ui.button(label="Kick", style=discord.ButtonStyle.red, custom_id="kick_button")
     async def kick_button(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Reload the latest tournament data
-        tournament = Tournament.load_tournament_by_name(self.tournament.name)
+        tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name)
         self.tournament = tournament  # Update the view's reference
         # Get necessary user and channels
         player = discord.utils.get(interaction.guild.members, name=self.player_name)

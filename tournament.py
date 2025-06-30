@@ -2,12 +2,14 @@ import json
 import os
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-json_file_path = os.path.join(current_dir, "tournaments.json")
+SERVERS_DIR = os.path.join(current_dir, "servers")
+os.makedirs(SERVERS_DIR, exist_ok=True)
+# json_file_path = os.path.join(current_dir, "tournaments.json")
 
 class Tournament:
     def __init__(self, id, name, game, date, time, date_time, prize, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
                  reg_channel=None, reg_msg_id=None, admin_msg_channel_id=None, admin_msg_id=None, owner=None, tournament_channel_id=None, tournament_channel_msg_id=None, 
-                 participants_channel_id=None, curr_num_matches=None, players=None, reserves=None, tournament_winner=None, matches=None):
+                 participants_channel_id=None, curr_num_matches=None, players=None, reserves=None, tournament_winner=None, matches=None, guild_id=None):
         self.id = id
         self.reg_channel = reg_channel
         self.reg_msg_id = reg_msg_id
@@ -34,6 +36,7 @@ class Tournament:
         self.reserves = reserves or []
         self.matches = matches or []
         self.tournament_winner = tournament_winner or ""
+        self.guild_id = guild_id
 
     # Set registration channel
     def set_reg_channel(self, reg_channel):
@@ -112,7 +115,9 @@ class Tournament:
     # Save the tournament details to the json file
     def save(self):
         # Get existing tournaments
-        tournaments = Tournament.load_all_tournaments()
+        tournaments = Tournament.load_all_tournaments(self.guild_id)
+
+        file_path = Tournament.get_guild_file(self.guild_id)
 
         # Update existing tournament or add new one
         updated = False
@@ -145,69 +150,79 @@ class Tournament:
                     t.reserves = self.reserves
                     t.matches = self.matches
                     t.tournament_winner = self.tournament_winner
+                    t.guild_id = self.guild_id
                     updated = True
 
         # Append to file if it's a new tournament
         if not updated:
             tournaments.append(self)
 
-        with open(json_file_path, "w") as file:
+        with open(file_path, "w") as file:
             json.dump([t.__dict__ for t in tournaments], file, indent=4)
     
+    @staticmethod
+    def get_guild_file(guild_id):
+        return os.path.join(SERVERS_DIR, f"{guild_id}.json")
+
     # Save all tournaments to JSON
     @staticmethod
-    def save_all(tournaments):
-        with open(json_file_path, "w") as file:
+    def save_all(guild_id, tournaments):
+        file_path = Tournament.get_guild_file(guild_id)
+        with open(file_path, "w") as file:
             json.dump([t.__dict__ for t in tournaments], file, indent=4)
     
     @staticmethod
-    def load_all_tournaments():
+    def load_all_tournaments(guild_id):
+        file_path = Tournament.get_guild_file(guild_id)
         tournaments = []
-        if os.path.exists(json_file_path):
-            try:
-                with open(json_file_path, "r") as file:
-                    data = json.load(file)
-                    for item in data:
-                        tournaments.append(
-                            Tournament(
-                                id=item["id"],
-                                reg_channel=item["reg_channel"],
-                                reg_msg_id=item["reg_msg_id"],
-                                reg_status=item["reg_status"],
-                                admin_msg_channel_id=item.get("admin_msg_channel_id"),
-                                admin_msg_id=item["admin_msg_id"],
-                                tournament_channel_id=item["tournament_channel_id"],
-                                tournament_channel_msg_id=item["tournament_channel_msg_id"],
-                                participants_channel_id=item["participants_channel_id"],
-                                curr_num_matches=item["curr_num_matches"],
-                                name=item["name"],
-                                game=item["game"],
-                                date=item["date"],
-                                time=item["time"],
-                                date_time=item["date_time"],
-                                prize=item["prize"],
-                                player_cap=item.get("player_cap"),
-                                thread_msg=item.get("thread_msg"),
-                                admin_role=item["admin_role"],
-                                owner=item["owner"],
-                                participants_role=item["participants_role"],
-                                round=item.get("round", 0),
-                                players=item["players"],
-                                reserves=item["reserves"],
-                                matches=item["matches"],
-                                tournament_winner=item.get("tournament_winner", "")
-                            )
-                        )
 
-            except json.JSONDecodeError:
-                print("File empty or invalid")
-        else:
-            print("File doesn't exist")
+        if not os.path.exists(file_path):
+            with open(file_path, "w") as file:
+                json.dump([], file)
+        try:
+            with open(file_path, "r") as file:
+                data = json.load(file)
+                for item in data:
+                    tournaments.append(
+                        Tournament(
+                            id=item["id"],
+                            reg_channel=item["reg_channel"],
+                            reg_msg_id=item["reg_msg_id"],
+                            reg_status=item["reg_status"],
+                            admin_msg_channel_id=item.get("admin_msg_channel_id"),
+                            admin_msg_id=item["admin_msg_id"],
+                            tournament_channel_id=item["tournament_channel_id"],
+                            tournament_channel_msg_id=item["tournament_channel_msg_id"],
+                            participants_channel_id=item["participants_channel_id"],
+                            curr_num_matches=item["curr_num_matches"],
+                            name=item["name"],
+                            game=item["game"],
+                            date=item["date"],
+                            time=item["time"],
+                            date_time=item["date_time"],
+                            prize=item["prize"],
+                            player_cap=item.get("player_cap"),
+                            thread_msg=item.get("thread_msg"),
+                            admin_role=item["admin_role"],
+                            owner=item["owner"],
+                            participants_role=item["participants_role"],
+                            round=item.get("round", 0),
+                            players=item["players"],
+                            reserves=item["reserves"],
+                            matches=item["matches"],
+                            tournament_winner=item.get("tournament_winner", ""),
+                            guild_id=guild_id
+                        )
+                    )
+
+        except json.JSONDecodeError:
+            print("File empty or invalid")
+        
         return tournaments
 
     @staticmethod
-    def load_tournament_by_name(tournament_name):
-        tournaments = Tournament.load_all_tournaments()
+    def load_tournament_by_name(guild_id, tournament_name):
+        tournaments = Tournament.load_all_tournaments(guild_id)
         for t in tournaments:
             if t.name.lower() == tournament_name.lower():
                 return t
@@ -215,7 +230,7 @@ class Tournament:
         return None
     
     @staticmethod
-    def delete_tournament(id):
-        tournaments = Tournament.load_all_tournaments()
+    def delete_tournament(guild_id, id):
+        tournaments = Tournament.load_all_tournaments(guild_id)
         tournaments = [t for t in tournaments if t.id != id]
-        Tournament.save_all(tournaments)
+        Tournament.save_all(guild_id, tournaments)
