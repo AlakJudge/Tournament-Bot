@@ -129,6 +129,9 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
             )
         await thread.send(f"## :fire: Welcome to your match! :fire:")
         
+        # Turn off "anyone can invite" to the thread
+        await thread.edit(invitable=False)
+
         match = {
             "id": match_id,
             "players": [],
@@ -243,7 +246,7 @@ class Start_Match_View(discord.ui.View):
         else:            
             await interaction.response.send_message("Ready check sent to all players.", ephemeral=True)
 
-        await not_ready_forfeit(interaction, view, thread, match_players)
+        await not_ready_forfeit(self.tournament, interaction, view, thread, match_players)
 
 class Transfer_Player_View(discord.ui.View):    
     def __init__(self, tournament, match_id):
@@ -306,6 +309,10 @@ class Remove_Player_Menu(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):        
         selected_player = self.values[0]
+
+        # Check if the user has the admin role or is a server admin
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
         
         # Remove player from match
         success = await remove_player_from_match(interaction, self.tournament, self.match_id, selected_player)
@@ -437,9 +444,9 @@ async def ready_check(interaction: discord.Interaction, tournament: Tournament, 
 
     return view, thread, match_players
         
-async def not_ready_forfeit(interaction: discord.Interaction, view: Ready_Check_View, thread: discord.Thread, match_players: list):   
+async def not_ready_forfeit(tournament: Tournament, interaction: discord.Interaction, view: Ready_Check_View, thread: discord.Thread, match_players: list):   
     # Wait for 5 minutes
-    await asyncio.sleep(300)
+    await asyncio.sleep(5)
 
     # Tag players who did not click the ready button
     not_ready_players = [player for player in match_players if player not in view.children[0].clicked_users]
@@ -451,12 +458,32 @@ async def not_ready_forfeit(interaction: discord.Interaction, view: Ready_Check_
     if not_ready_players:
         not_ready_mentions = " ".join(player.mention for player in not_ready_players)
         await thread.send(f"## The following players are not ready: {not_ready_mentions}\n### You have 5 minutes to ready up, or forfeit the match.") 
+        # If they are still not ready after 5 minutes, give option to remove them from the match
+        asyncio.create_task(final_not_ready_forfeit(tournament, interaction, view, thread, match_players))
     else:
         await thread.send(f"## All players are ready! Let's start the match!")
 
+async def final_not_ready_forfeit(tournament: Tournament, interaction: discord.Interaction, view: Ready_Check_View, thread: discord.Thread, match_players: list):
+    # Wait for 5 minutes
+    await asyncio.sleep(5)
 
+    final_not_ready_list = [player for player in match_players if player not in view.children[0].clicked_users]
 
+    if not final_not_ready_list:
+        await thread.send(f"## All players are ready! Let's start the match!")
+        return  # All players are ready
+    
+    # Get match_id
+    match_id = next((m["id"] for m in tournament.matches if m["thread_id"] == thread.id), None)
 
+    final_not_ready_users = [discord.utils.get(interaction.guild.members, name=player) for player in final_not_ready_list]
+    final_mentions = " ".join(user.mention for user in final_not_ready_users if user)
+
+    await thread.send (f"## ❌ The following players are still not ready: {final_mentions}\n")
+    await thread.send (f"### Would you like to remove them from the match?")
+    remove_view = Remove_Player_View(tournament, match_id)
+    await thread.send("", view=remove_view)
+    
 
 ###################################
 # TOURNAMENT RUNNING VIEW SECTION #
@@ -548,7 +575,7 @@ class Tournament_Running_View(discord.ui.View):
 
         # Wait 5 mins, then tag all players not ready yet in each active thread
         tasks = [
-            not_ready_forfeit(interaction, view, thread, match_players)
+            not_ready_forfeit(self.tournament, interaction, view, thread, match_players)
             for view, thread, match_players in ready_check_data
         ]
         await asyncio.gather(*tasks)
@@ -611,7 +638,7 @@ async def remove_player_from_match(interaction, tournament: Tournament, match_id
                 await thread.remove_user(user) # Remove user from thread
                 # If match is now empty, lock the thread
                 if not match["players"]:
-                    await thread.edit(locked=True)
+                    await thread.edit(locked=True, name=f"{thread.name}🔒")
                     await thread.send(f"## This match has no players. The thread will be locked.")
             return True
         else:
@@ -745,7 +772,7 @@ async def lock_all_threads(interaction: discord.Interaction, channel: discord.Te
     # Fetch active threads in the channel, iterate and lock each thread
     for thread in channel.threads:
         if not thread.locked: 
-            await thread.edit(locked=True)
+            await thread.edit(locked=True, name=f"{thread.name}🔒")
 
     # check if interaction has been responded to
     if interaction.response.is_done():
@@ -778,9 +805,10 @@ class Announcement_Modal(discord.ui.Modal):
     async def callback(self, interaction: discord.Interaction):
         message = self.children[0].value
         await interaction.response.send_message("Sending announcement to all threads...", ephemeral=True)
-
+        
         threads = [discord.utils.get(interaction.guild.threads, id=match["thread_id"])
             for match in self.tournament.matches if match.get("thread_id")]
-        # Send concurrently
-        await asyncio.gather(*(thread.send(message) for thread in threads if thread))
+        
+        # Send concurrently if thread not locked
+        await asyncio.gather(*(thread.send(message) for thread in threads if thread and not thread.locked))
         await interaction.followup.send(f"Announcement sent to all active game threads.", ephemeral=True)
