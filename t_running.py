@@ -188,8 +188,8 @@ class Start_Match_View(discord.ui.View):
         self.match_id = match_id 
         self.tournament: Tournament = tournament
 
-    @discord.ui.button(label="🏁 Start Match", style=discord.ButtonStyle.green, custom_id="start_match_button")
-    async def start_match(self, button: discord.ui.Button, interaction: discord.Interaction):
+    @discord.ui.button(label="🏅 Set Winner", style=discord.ButtonStyle.green, custom_id="set_winner_button")
+    async def set_winner(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -197,7 +197,7 @@ class Start_Match_View(discord.ui.View):
         self.tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name) # update tournament info from file
 
         winner_view = Select_Winner_View(self.tournament, self.match_id)
-        await interaction.response.send_message(f"Match Started! Once it's over, an Admin will select the winner below.", view=winner_view)
+        await interaction.response.send_message(f"An Admin may now select the winner(s) of the match.", view=winner_view)
 
     @discord.ui.button(label="➕ Add Reserve", style=discord.ButtonStyle.blurple, custom_id="add_reserve_button")
     async def add_reserve(self, button: discord.ui.Button, interaction: discord.Interaction):
