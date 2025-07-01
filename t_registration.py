@@ -6,43 +6,11 @@ import discord
 class Registration(discord.ui.View):    
     def __init__(self, tournament:Tournament):
         super().__init__(timeout=None)
-        self.tournament = tournament
+        self.tournament: Tournament = tournament
     
     @discord.ui.button(label="Register", style = discord.ButtonStyle.green, custom_id="register_button")
     async def register(self, button: discord.ui.Button, interaction: discord.Interaction):
-        # Get user and participants channel
-        player_name = interaction.user.name
-        player = discord.utils.get(interaction.guild.members, name=player_name) 
-        participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
-        # Reload the latest tournament data
-        tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name)
-        self.tournament = tournament 
-
-        # Get tournament details and check if the user is already registered. Stop duplicate register if so.
-        if player_name in self.tournament.players or player_name in self.tournament.reserves:
-            await interaction.response.send_message(f"Registration failed. '{player_name}' is already registered to '{self.tournament.name}'.", ephemeral=True)
-            return
-
-        # Assign the participant role to the user
-        if self.tournament.participants_role:
-            participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=self.tournament.participants_role) 
-            await interaction.user.add_roles(participants_role)
-
-        k_view = kick_view(self.tournament, player_name) # Set up view for kick button
-        
-        # Add as player if under the player cap limit, otherwise add as reserve
-        if len(self.tournament.players) < self.tournament.player_cap:
-            self.tournament.register_player(player_name)
-            await interaction.response.send_message(f"'{player_name}' registered to '{self.tournament.name}' successfully.", ephemeral=True)
-        else:
-            self.tournament.register_reserve(player_name)    
-            await interaction.response.send_message(f"'{player_name}' registered to '{self.tournament.name}' as a **RESERVE** successfully.", ephemeral=True)    
-        
-        self.tournament.save() # Save registration to file
-        await update_tournament_embeds(self.tournament, interaction) # Edit the embed with updated number of players
-        
-        await participants_channel.send(f"----------------------------------\n"
-                                        f"{player.mention} registered to '{self.tournament.name}' successfully.", view=k_view)
+        await register_player_to_tournament(self.tournament, interaction.user, interaction)
 
     @discord.ui.button(label="Unregister", style = discord.ButtonStyle.red, custom_id="unregister_button")
     async def unregister(self, button: discord.ui.Button, interaction: discord.Interaction):
@@ -53,6 +21,9 @@ class Registration(discord.ui.View):
         player = discord.utils.get(interaction.guild.members, name=player_name) 
         participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
         tournament_channel = await interaction.guild.fetch_channel(self.tournament.tournament_channel_id)
+
+        # Update tournament data
+        self.tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name)
 
         # Check if player is registered
         if player_name not in self.tournament.players and player_name not in self.tournament.reserves:
@@ -162,6 +133,42 @@ class kick_view(discord.ui.View):
         await interaction.response.defer()
 
         await self.message.delete()
+
+# Function to register a player to a tournament
+async def register_player_to_tournament(tournament, player, interaction=None):
+    # Get user and participants channel
+    player_name = interaction.user.name
+    player = discord.utils.get(interaction.guild.members, name=player_name) 
+    participants_channel = await interaction.guild.fetch_channel(tournament.participants_channel_id)
+    # Reload the latest tournament data
+    tournament = Tournament.load_tournament_by_name(interaction.guild.id, tournament.name)
+
+    # Get tournament details and check if the user is already registered. Stop duplicate register if so.
+    if player_name in tournament.players or player_name in tournament.reserves:
+        await interaction.response.send_message(f"Registration failed. '{player_name}' is already registered to '{tournament.name}'.", ephemeral=True)
+        return
+
+    # Assign the participant role to the user
+    if tournament.participants_role:
+        participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.participants_role) 
+        await interaction.user.add_roles(participants_role)
+
+    k_view = kick_view(tournament, player_name) # Set up view for kick button
+    
+    # Add as player if under the player cap limit, otherwise add as reserve
+    if len(tournament.players) < tournament.player_cap:
+        tournament.register_player(player_name)
+        await interaction.response.send_message(f"'{player_name}' registered to '{tournament.name}' successfully.", ephemeral=True)
+    else:
+        tournament.register_reserve(player_name)    
+        await interaction.response.send_message(f"'{player_name}' registered to '{tournament.name}' as a **RESERVE** successfully.", ephemeral=True)    
+    
+    tournament.save() # Save registration to file
+    await update_tournament_embeds(tournament, interaction) # Edit the embed with updated number of players
+    
+    await participants_channel.send(f"----------------------------------\n"
+                                    f"{player.mention} registered to '{tournament.name}' successfully.", view=k_view)
+
 
 # Close registration function
 async def close_registration(interaction: discord.Interaction, tournament: Tournament):

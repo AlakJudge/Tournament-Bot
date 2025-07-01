@@ -7,6 +7,8 @@ from tournament import Tournament
 from t_admin_menu import T_Admin
 from t_persistant_views import restore_all_views
 from t_running import Start_Match_View
+from t_registration import register_player_to_tournament
+
 
 load_dotenv()
 
@@ -86,7 +88,10 @@ async def tournament_list(ctx: discord.ApplicationContext):
 
 # Slash command to ADMIN a tournament
 @bot.slash_command(name = "admin", description = "Administrate a Tournament by entering its ID number.")
-async def admin(ctx: discord.ApplicationContext, id:int = discord.Option(description="Find this ID number by using the tournaments_list command")):
+async def admin(
+    ctx: discord.ApplicationContext, 
+    id:int = discord.Option(description="Find this ID number by using the tournaments_list command")
+    ):
     await ctx.defer() 
     # Find the tournament
     tournaments = Tournament.load_all_tournaments(ctx.guild.id)
@@ -179,6 +184,31 @@ async def reload_thread_buttons(ctx: discord.ApplicationContext):
     view = Start_Match_View(match_id, tournament)
     await ctx.respond(content="## 🛠 Match Admin Buttons", view=view)
 
+# Register a player to a tournament manually
+@bot.slash_command(name="register_player", description="Register a player to a tournament manually")
+async def register_player(
+        ctx: discord.ApplicationContext,
+        tournament_id: int,
+        player: discord.Member = discord.Option(discord.Member, description="The player to register to the tournament")
+        ):
+    # Get tournament
+    tournaments = Tournament.load_all_tournaments(ctx.guild.id)
+    tournament: Tournament = next((t for t in tournaments if t.id == int(tournament_id)), None)
+    if not tournament:
+        await ctx.respond("Tournament not found.", ephemeral=True)
+        return
+
+    # Only allow users with this permission to admin tournaments
+    user: discord.Member = ctx.guild.get_member(ctx.user.id)
+    admin_role: discord.Role = discord.utils.get(ctx.guild.roles, name=tournament.admin_role)
+    if admin_role not in user.roles and not user.guild_permissions.administrator:
+        await ctx.respond(f"Failed. You must have the '{tournament.admin_role}' role to perform this action.", ephemeral=True)
+        return
+
+    # Register the player
+    await register_player_to_tournament(tournament, player, ctx.interaction)
+
+
 @bot.slash_command(name="help", description="Get help with the bot")
 async def help(ctx: discord.ApplicationContext):
     help_embed = discord.Embed(title="Tournament Bot Help", color=discord.Color.blue())
@@ -252,8 +282,9 @@ class HelpView(discord.ui.View):
             "It also sets the player as the owner and creates both the **Admin** and **Participant** roles.\n\n"
             "`/tournaments_list` - Show a list of all active tournaments and their IDs.\n\n"
             "`/admin` - Open the ADMIN MENU. Needs the tournament ID.\n\n"
+            "`/register_player` - Register a player to a tournament manually.\n\n"
             "`/set_reg_channel` - Change the registration channel after a tournament has been created.\n\n"
-            "`/reload_thread_buttons` - Reload the admin buttons for that specific Match Thread.\n"
+            "`/reload_thread_buttons` - Reload the admin buttons for that specific Match Thread.\n\n"
             "`/help` - Get help with the bot.\n"
             "**-----**"
         )
