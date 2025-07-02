@@ -41,8 +41,7 @@ async def on_ready():
                     )
     
     # Force sync slash commands
-    await bot.sync_commands(guild_ids=[1286841607576092763])
-
+    await bot.sync_commands()
 
 ##########################
 # SLASH COMMANDS SECTION #

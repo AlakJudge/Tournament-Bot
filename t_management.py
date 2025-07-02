@@ -288,16 +288,13 @@ class Archive_Confirmation_View(discord.ui.View):
 # Delete all roles related to the tournament
 async def delete_tournament_roles(interaction: discord.Interaction, tournament: Tournament, reason: str):
         admin_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.admin_role)
-        try:
+        if admin_role:
             await admin_role.delete(reason=reason)
-        except discord.NotFound:
-            pass  
 
         participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.participants_role)            
-        try:
+        if participants_role:
             await participants_role.delete(reason=reason)
-        except discord.NotFound:
-            pass
+ 
 
 # Delete all messages related to the tournament, if they exist
 async def delete_all_tournament_messages(interaction: discord.Interaction, tournament: Tournament):
