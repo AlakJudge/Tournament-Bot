@@ -1,1 +1,379 @@
-[]
+[
+    {
+        "id": 1,
+        "reg_channel": 1109563309323194468,
+        "reg_msg_id": 1384163450284146692,
+        "reg_status": "Closed",
+        "admin_msg_channel_id": 1370812686547292212,
+        "admin_msg_id": 1389747676769288293,
+        "tournament_channel_id": 1384163452393754707,
+        "tournament_channel_msg_id": 1384163598581891122,
+        "participants_channel_id": 1384163453736058993,
+        "curr_num_matches": 1,
+        "name": "Starseeker Tournament",
+        "game": "Monopoly",
+        "date": "16/06/2025",
+        "time": "15:00",
+        "date_time": "<t:1750082400:F>",
+        "prize": "Starseeker token + Moon dice",
+        "notification_intervals": [],
+        "player_cap": 64,
+        "thread_msg": null,
+        "admin_role": "(1) Tournament Admin",
+        "owner": 1214191755570974751,
+        "participants_role": "(1) Tournament Participant",
+        "round": 3,
+        "players": [
+            "rikujokoro.",
+            "candicelws",
+            "eagerlion0391",
+            "1masterkey",
+            "raptureave",
+            "m.e4404",
+            "emilyjade422",
+            "lillegendqbboy",
+            "ditzydiamond",
+            "kayj97",
+            "omonlyme",
+            "rodney2times",
+            "tanner08685",
+            "ladopa",
+            "jaijai4097",
+            "thisferv27",
+            "peachlovessummer",
+            "heavymetalnurse",
+            "dpgoo",
+            "powerghost13",
+            "youngin077",
+            "mxn555",
+            "joker2299._98249",
+            "captainj6_40140",
+            "carlosvall",
+            "msprettysavage08",
+            "youngstowndizz",
+            "viruszd",
+            "monopomoneyteam",
+            "padawanlearner",
+            "mocarn.",
+            "bussindoggy",
+            "smashngrab0958",
+            "seunadex",
+            "8enopoly_76926",
+            "corazonmx",
+            "anthonyy47",
+            "thevelociraptor444",
+            "pinnak_1996",
+            "djmoney224",
+            "malo4775",
+            "gunboss896",
+            "neo478_",
+            "galusca_dea",
+            "chizzybillions",
+            "hurryupb1tch.",
+            "chantelleabelle",
+            "binghambloke",
+            "arghaghosh12799",
+            "hotcoco.",
+            "jamal02132",
+            "wullwell",
+            "dio9595",
+            "rogueflaw",
+            "mirrorball0029",
+            "zabs99",
+            "geofemi",
+            "lumontology",
+            "yg_bossey",
+            "freethinker_001",
+            "turk76",
+            "hakunaurtatas",
+            "boog1066",
+            "quentin07790",
+            "tpijp",
+            "soyelbichosiuu",
+            "yellie1304",
+            "malarkey_101s",
+            "cro1969"
+        ],
+        "reserves": [],
+        "matches": [
+            {
+                "id": "R1-G1",
+                "players": [
+                    "rikujokoro.",
+                    "eagerlion0391",
+                    "1masterkey"
+                ],
+                "winners": [],
+                "thread_id": 1384163601492742247,
+                "thread_msg_id": 1384163613949820992
+            },
+            {
+                "id": "R1-G2",
+                "players": [
+                    "emilyjade422",
+                    "lillegendqbboy"
+                ],
+                "winners": [],
+                "thread_id": 1384163616327991493,
+                "thread_msg_id": 1384163644580954255
+            },
+            {
+                "id": "R1-G3",
+                "players": [
+                    "ditzydiamond",
+                    "kayj97",
+                    "omonlyme",
+                    "rodney2times"
+                ],
+                "winners": [],
+                "thread_id": 1384163647269638255,
+                "thread_msg_id": 1384163674683342919
+            },
+            {
+                "id": "R1-G4",
+                "players": [
+                    "tanner08685",
+                    "ladopa",
+                    "jaijai4097",
+                    "thisferv27",
+                    "candicelws",
+                    "smashngrab0958"
+                ],
+                "winners": [],
+                "thread_id": 1384163677351182387,
+                "thread_msg_id": 1384163705557880832
+            },
+            {
+                "id": "R1-G5",
+                "players": [
+                    "peachlovessummer",
+                    "heavymetalnurse",
+                    "dpgoo",
+                    "powerghost13",
+                    "ditzydiamond"
+                ],
+                "winners": [],
+                "thread_id": 1384163708854337658,
+                "thread_msg_id": 1384163736813834311
+            },
+            {
+                "id": "R1-G6",
+                "players": [
+                    "youngin077",
+                    "mxn555",
+                    "joker2299._98249",
+                    "raptureave",
+                    "eagerlion0391",
+                    "anthonyy47"
+                ],
+                "winners": [],
+                "thread_id": 1384163739531477004,
+                "thread_msg_id": 1384163756707287153
+            },
+            {
+                "id": "R1-G7",
+                "players": [
+                    "carlosvall",
+                    "msprettysavage08",
+                    "youngstowndizz",
+                    "viruszd"
+                ],
+                "winners": [],
+                "thread_id": 1384163760754921615,
+                "thread_msg_id": 1384163775804080128
+            },
+            {
+                "id": "R1-G8",
+                "players": [
+                    "monopomoneyteam",
+                    "padawanlearner",
+                    "mocarn.",
+                    "bussindoggy",
+                    "malarkey_101s"
+                ],
+                "winners": [],
+                "thread_id": 1384163777989316809,
+                "thread_msg_id": 1384163805642231828
+            },
+            {
+                "id": "R1-G9",
+                "players": [
+                    "seunadex",
+                    "8enopoly_76926",
+                    "soyelbichosiuu",
+                    "neo478_"
+                ],
+                "winners": [],
+                "thread_id": 1384163808309809153,
+                "thread_msg_id": 1384163818481123340
+            },
+            {
+                "id": "R1-G10",
+                "players": [
+                    "pinnak_1996",
+                    "djmoney224",
+                    "yellie1304"
+                ],
+                "winners": [],
+                "thread_id": 1384163820964024430,
+                "thread_msg_id": 1384163837560881152
+            },
+            {
+                "id": "R1-G11",
+                "players": [
+                    "malo4775",
+                    "gunboss896",
+                    "galusca_dea"
+                ],
+                "winners": [],
+                "thread_id": 1384163839574151228,
+                "thread_msg_id": 1384163868019916840
+            },
+            {
+                "id": "R1-G12",
+                "players": [
+                    "chantelleabelle",
+                    "binghambloke",
+                    "captainj6_40140",
+                    "m.e4404"
+                ],
+                "winners": [],
+                "thread_id": 1384163870683435150,
+                "thread_msg_id": 1384163898516701197
+            },
+            {
+                "id": "R1-G13",
+                "players": [
+                    "arghaghosh12799",
+                    "hotcoco.",
+                    "jamal02132",
+                    "wullwell",
+                    "dio9595",
+                    "lumontology",
+                    "chizzybillions",
+                    "m.e4404",
+                    "hurryupb1tch.",
+                    "mirrorball0029"
+                ],
+                "winners": [
+                    "chizzybillions",
+                    "m.e4404",
+                    "hotcoco."
+                ],
+                "thread_id": 1384163901523890338,
+                "thread_msg_id": 1384163929567268986
+            },
+            {
+                "id": "R1-G14",
+                "players": [
+                    "zabs99",
+                    "tpijp"
+                ],
+                "winners": [],
+                "thread_id": 1384163933061120090,
+                "thread_msg_id": 1384163941990797412
+            },
+            {
+                "id": "R1-G15",
+                "players": [
+                    "geofemi",
+                    "yg_bossey",
+                    "freethinker_001",
+                    "mirrorball0029",
+                    "msprettysavage08"
+                ],
+                "winners": [],
+                "thread_id": 1384163944448528478,
+                "thread_msg_id": 1384163971996844143
+            },
+            {
+                "id": "R1-G16",
+                "players": [
+                    "turk76",
+                    "hakunaurtatas",
+                    "boog1066",
+                    "quentin07790",
+                    "cro1969"
+                ],
+                "winners": [],
+                "thread_id": 1384163974127288402,
+                "thread_msg_id": 1384163985791914115
+            },
+            {
+                "id": "R2-G1",
+                "players": [
+                    "m.e4404",
+                    "turk76",
+                    "pinnak_1996",
+                    "youngin077",
+                    "thisferv27"
+                ],
+                "winners": [
+                    "thisferv27"
+                ],
+                "thread_id": 1384617265277964479,
+                "thread_msg_id": 1384617270562656297
+            },
+            {
+                "id": "R2-G2",
+                "players": [
+                    "chizzybillions",
+                    "yg_bossey",
+                    "seunadex",
+                    "eagerlion0391"
+                ],
+                "winners": [
+                    "chizzybillions"
+                ],
+                "thread_id": 1384617272903077959,
+                "thread_msg_id": 1384617277948956865
+            },
+            {
+                "id": "R2-G3",
+                "players": [
+                    "hotcoco.",
+                    "msprettysavage08",
+                    "bussindoggy",
+                    "powerghost13"
+                ],
+                "winners": [
+                    "hotcoco."
+                ],
+                "thread_id": 1384617280327127131,
+                "thread_msg_id": 1384617285272211497
+            },
+            {
+                "id": "R2-G4",
+                "players": [
+                    "boog1066",
+                    "captainj6_40140",
+                    "monopomoneyteam",
+                    "dpgoo",
+                    "smashngrab0958"
+                ],
+                "winners": [
+                    "monopomoneyteam"
+                ],
+                "thread_id": 1384617287411171463,
+                "thread_msg_id": 1384617290737127537
+            },
+            {
+                "id": "R3-G1",
+                "players": [
+                    "thisferv27",
+                    "chizzybillions",
+                    "hotcoco.",
+                    "monopomoneyteam"
+                ],
+                "winners": [
+                    "chizzybillions"
+                ],
+                "thread_id": 1384938604714922065,
+                "thread_msg_id": 1384938617914527754
+            }
+        ],
+        "tournament_winner": "chizzybillions",
+        "guild_id": 1037337914415259648,
+        "archived": true
+    }
+]
