@@ -229,7 +229,7 @@ async def update_tournament_embeds(t:Tournament, interaction: discord.Interactio
         tournament_message = await tournament_channel.fetch_message(tournament.tournament_channel_msg_id)
         await tournament_message.edit(embed=new_embed)
 
-# "Are you sure?" confirmation view for deleting a tournament
+# "Are you sure?" confirmation view for DELETING a tournament
 class Delete_Confirmation_View(discord.ui.View):
     def __init__(self, message, tournament:Tournament):
         super().__init__()
@@ -241,25 +241,13 @@ class Delete_Confirmation_View(discord.ui.View):
         Tournament.delete_tournament(self.tournament.id)
 
         # Delete all messages related to the tournament, if they exist
-        if self.tournament.reg_msg_id:
-            reg_channel = await interaction.guild.fetch_channel(self.tournament.reg_channel)
-            try:
-                reg_msg = await reg_channel.fetch_message(self.tournament.reg_msg_id)
-                await reg_msg.delete()
-            except discord.NotFound:
-                pass
-        if self.tournament.admin_msg_id:
-            admin_message =  await interaction.channel.fetch_message(self.tournament.admin_msg_id)
-            await admin_message.delete()
+        await delete_all_tournament_messages(interaction, self.tournament)
 
         # Delete yes/no buttons view
         await self.message.delete()
         
         # Delete tournament roles
-        admin_role: discord.Role = discord.utils.get(interaction.guild.roles, name=self.tournament.admin_role)            
-        await admin_role.delete(reason="Tournament deleted")
-        participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=self.tournament.participants_role)            
-        await participants_role.delete(reason="Tournament deleted")
+        await delete_tournament_roles(interaction, self.tournament, "Tournament deleted by admin.")
 
         await interaction.response.send_message(f"Tournament '{self.tournament.name}' Deleted successfully.", ephemeral=True)
 
@@ -268,3 +256,61 @@ class Delete_Confirmation_View(discord.ui.View):
         # If "No" is clicked, cancel the action
         await self.message.delete()
         await interaction.response.send_message("Action cancelled.", ephemeral=True)
+
+# "Are you sure?" confirmation view for ARCHIVING a tournament
+class Archive_Confirmation_View(discord.ui.View):
+    def __init__(self, message, tournament:Tournament):
+        super().__init__()
+        self.message = message
+        self.tournament = tournament
+
+    @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
+    async def confirm(self, button: discord.ui.Button,interaction: discord.Interaction):
+        Tournament.archive_tournament(interaction.guild.id, self.tournament.id)
+
+        # Delete all messages related to the tournament, if they exist
+        await delete_all_tournament_messages(interaction, self.tournament)
+
+        # Delete yes/no buttons view
+        await self.message.delete()
+        
+        # Delete tournament roles
+        await delete_tournament_roles(interaction, self.tournament, "Tournament archived by admin.")
+
+        await interaction.response.send_message(f"Tournament '{self.tournament.name}' Archived successfully.", ephemeral=True)
+
+    @discord.ui.button(label="No", style=discord.ButtonStyle.red)
+    async def cancel(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # If "No" is clicked, cancel the action
+        await self.message.delete()
+        await interaction.response.send_message("Action cancelled.", ephemeral=True)
+
+# Delete all roles related to the tournament
+async def delete_tournament_roles(interaction: discord.Interaction, tournament: Tournament, reason: str):
+        admin_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.admin_role)
+        try:
+            await admin_role.delete(reason=reason)
+        except discord.NotFound:
+            pass  
+
+        participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.participants_role)            
+        try:
+            await participants_role.delete(reason=reason)
+        except discord.NotFound:
+            pass
+
+# Delete all messages related to the tournament, if they exist
+async def delete_all_tournament_messages(interaction: discord.Interaction, tournament: Tournament):
+    if tournament.reg_msg_id:
+        reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
+        try:
+            reg_msg = await reg_channel.fetch_message(tournament.reg_msg_id)
+            await reg_msg.delete()
+        except discord.NotFound:
+            pass
+    if tournament.admin_msg_id:
+        admin_message =  await interaction.channel.fetch_message(tournament.admin_msg_id)
+        try:
+            await admin_message.delete()
+        except discord.NotFound:
+            pass

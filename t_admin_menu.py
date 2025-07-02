@@ -1,6 +1,6 @@
 from t_registration import Registration, close_registration
 from tournament import Tournament
-from t_management import update_tournament_embeds, create_tournament_embed, Delete_Confirmation_View, Edit_Options_View
+from t_management import update_tournament_embeds, create_tournament_embed, Delete_Confirmation_View, Edit_Options_View, Archive_Confirmation_View
 from t_registration import Reg_Msg_Modal
 from t_utils import check_tournament_admin, schedule_custom_notifications, parse_time_string, cancel_scheduled_notifications, parse_seconds_to_human_readable
 from t_running import run_tournament
@@ -93,7 +93,7 @@ class T_Admin(discord.ui.View):
         await close_registration(interaction=interaction, tournament=self.tournament)
 
     # Start Tournament button
-    @discord.ui.button(label="🟢 Start Tournament", style = discord.ButtonStyle.green, custom_id="start_tournament_button")
+    @discord.ui.button(label="🟢 START", style = discord.ButtonStyle.green, custom_id="start_tournament_button")
     async def t_run(self, button: discord.ui.Button, interaction: discord.Interaction):  
         if not await check_tournament_admin(interaction, self.tournament):
             return 
@@ -175,20 +175,35 @@ class T_Admin(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     # Restart the tournament - Delete everything but the registered players/reserves and base info data
-    @discord.ui.button(label="🔄 Restart Tournament", style = discord.ButtonStyle.blurple, custom_id="restart_tournament_button")
+    @discord.ui.button(label="🔄 Restart", style = discord.ButtonStyle.blurple, custom_id="restart_tournament_button")
     async def restart_tournament(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
         view = Restart_Confirmation_View(message=interaction.message, tournament = self.tournament)
         await interaction.response.send_message(f"Are you sure you want to **RESTART** '{self.tournament.name}'?", view=view)
 
+    # Archive Tournament button
+    @discord.ui.button(label="🗃 Archive", style = discord.ButtonStyle.red, custom_id="archive_tournament_button") 
+    async def archive_tournament(self,  button: discord.ui.Button, interaction: discord.Interaction):
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+        view = Archive_Confirmation_View(message=interaction.message, tournament = self.tournament)
+        await interaction.response.send_message(
+            f"Are you sure you want to **ARCHIVE** '{self.tournament.name}'?\n\n"
+            "All messages and roles related to the tournament will be deleted, but the created channels will stay (so you may do what you wish with them).\n"
+            "This action is **IRREVERSIBLE** and the tournament will no longer be visible in the list of active tournaments.",
+            view=view)
+
     # Delete Tournament button
-    @discord.ui.button(label="❌ Delete Tournament", style = discord.ButtonStyle.red, custom_id="delete_tournament_button") 
+    @discord.ui.button(label="❌ Delete", style = discord.ButtonStyle.red, custom_id="delete_tournament_button") 
     async def delete_tournament(self,  button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
         view = Delete_Confirmation_View(message=interaction.message, tournament = self.tournament)
-        await interaction.response.send_message(f"Are you sure you want to **DELETE** '{self.tournament.name}'?", view=view)
+        await interaction.response.send_message(
+            f"Are you sure you want to **DELETE** '{self.tournament.name}'?\n\n"
+            "This action is **IRREVERSIBLE** and the tournament will no longer be visible in the list of active tournaments.",
+            view=view)
 
 class Add_Admin_Modal(discord.ui.Modal):
     def __init__(self, tournament: Tournament):

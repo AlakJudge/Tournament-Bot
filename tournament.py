@@ -187,6 +187,8 @@ class Tournament:
             with open(file_path, "r") as file:
                 data = json.load(file)
                 for item in data:
+                    if item.get("archived", True): # Skip archived tournaments
+                        continue
                     tournaments.append(
                         Tournament(
                             id=item["id"],
@@ -239,4 +241,13 @@ class Tournament:
     def delete_tournament(guild_id, id):
         tournaments = Tournament.load_all_tournaments(guild_id)
         tournaments = [t for t in tournaments if t.id != id]
+        Tournament.save_all(guild_id, tournaments)
+
+    @staticmethod
+    def archive_tournament(guild_id, id):
+        tournaments = Tournament.load_all_tournaments(guild_id)
+        for t in tournaments:
+            if t.id == id:
+                t.archived = True
+                break
         Tournament.save_all(guild_id, tournaments)
