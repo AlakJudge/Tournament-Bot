@@ -1,0 +1,37 @@
+[
+    {
+        "id": 1,
+        "reg_channel": 1380943625596309584,
+        "reg_msg_id": 1389926136640700426,
+        "reg_status": "Open",
+        "admin_msg_channel_id": 1370812686547292212,
+        "admin_msg_id": 1390044923985793075,
+        "tournament_channel_id": 1389926140965294142,
+        "tournament_channel_msg_id": null,
+        "participants_channel_id": 1389926142290559016,
+        "curr_num_matches": 0,
+        "name": "qqawe",
+        "game": "dasd",
+        "date": "02072025",
+        "time": "15:34",
+        "date_time": "<t:1751466840:F>",
+        "prize": "12",
+        "notification_intervals": [],
+        "player_cap": 123,
+        "thread_msg": null,
+        "admin_role": "(1) Tournament Admin",
+        "owner": 857625238962962432,
+        "participants_role": "(1) Tournament Participant",
+        "round": 0,
+        "players": [
+            "davi_mgs"
+        ],
+        "reserves": [],
+        "matches": [],
+        "tournament_winner": "",
+        "guild_id": [
+            1286841607576092763
+        ],
+        "archived": false
+    }
+]
