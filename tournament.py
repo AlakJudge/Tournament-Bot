@@ -37,7 +37,7 @@ class Tournament:
         self.reserves = reserves or []
         self.matches = matches or []
         self.tournament_winner = tournament_winner or ""
-        self.guild_id = guild_id,
+        self.guild_id = guild_id
         self.archived = archived
 
     # Set registration channel
