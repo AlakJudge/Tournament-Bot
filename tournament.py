@@ -7,9 +7,9 @@ os.makedirs(SERVERS_DIR, exist_ok=True)
 # json_file_path = os.path.join(current_dir, "tournaments.json")
 
 class Tournament:
-    def __init__(self, id, name, game, date, time, date_time, prize, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
+    def __init__(self, id, name, game, date, time, date_time, prize, notification_intervals=None, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
                  reg_channel=None, reg_msg_id=None, admin_msg_channel_id=None, admin_msg_id=None, owner=None, tournament_channel_id=None, tournament_channel_msg_id=None, 
-                 participants_channel_id=None, curr_num_matches=None, players=None, reserves=None, tournament_winner=None, matches=None, guild_id=None):
+                 participants_channel_id=None, curr_num_matches=None, players=None, reserves=None, tournament_winner=None, matches=None, guild_id=None, archived=False):
         self.id = id
         self.reg_channel = reg_channel
         self.reg_msg_id = reg_msg_id
@@ -26,6 +26,7 @@ class Tournament:
         self.time = time
         self.date_time = date_time
         self.prize = prize
+        self.notification_intervals = notification_intervals or []
         self.player_cap = player_cap
         self.thread_msg = thread_msg
         self.admin_role = admin_role
@@ -36,7 +37,8 @@ class Tournament:
         self.reserves = reserves or []
         self.matches = matches or []
         self.tournament_winner = tournament_winner or ""
-        self.guild_id = guild_id
+        self.guild_id = guild_id,
+        self.archived = archived
 
     # Set registration channel
     def set_reg_channel(self, reg_channel):
@@ -140,6 +142,7 @@ class Tournament:
                     t.time = self.time
                     t.date_time = self.date_time
                     t.prize = self.prize
+                    t.notification_intervals = self.notification_intervals
                     t.player_cap = self.player_cap
                     t.thread_msg = self.thread_msg
                     t.admin_role = self.admin_role
@@ -151,6 +154,7 @@ class Tournament:
                     t.matches = self.matches
                     t.tournament_winner = self.tournament_winner
                     t.guild_id = self.guild_id
+                    t.archived = self.archived
                     updated = True
 
         # Append to file if it's a new tournament
@@ -201,6 +205,7 @@ class Tournament:
                             time=item["time"],
                             date_time=item["date_time"],
                             prize=item["prize"],
+                            notification_intervals=item.get("notification_intervals", []),
                             player_cap=item.get("player_cap"),
                             thread_msg=item.get("thread_msg"),
                             admin_role=item["admin_role"],
@@ -211,7 +216,8 @@ class Tournament:
                             reserves=item["reserves"],
                             matches=item["matches"],
                             tournament_winner=item.get("tournament_winner", ""),
-                            guild_id=guild_id
+                            guild_id=guild_id,
+                            archived=item.get("archived", False)
                         )
                     )
 

@@ -8,6 +8,7 @@ from t_admin_menu import T_Admin
 from t_persistant_views import restore_all_views
 from t_running import Start_Match_View
 from t_registration import register_player_to_tournament
+from t_utils import schedule_custom_notifications, DummyInteraction
 
 
 load_dotenv()
@@ -26,10 +27,21 @@ async def on_ready():
         await restore_all_views(bot)
     except Exception as e:
         print(f"Failed to restore views: {e}")
-        
+
+    # Iterate through each guild the bot is in and reschedule existing notifications for tournaments
+    for guild in bot.guilds:
+        dummy_interaction = DummyInteraction(guild)
+        tournaments = Tournament.load_all_tournaments(guild.id)
+        for tournament in tournaments:
+            if hasattr(tournament, "notification_intervals"):
+                await schedule_custom_notifications(
+                    tournament, dummy_interaction, 
+                    [i["seconds"] for i in tournament.notification_intervals], 
+                    startup=True
+                    )
+    
     # Force sync slash commands
     await bot.sync_commands(guild_ids=[1286841607576092763])
-    
 
 
 ##########################

@@ -2,10 +2,9 @@ from t_registration import Registration, close_registration
 from tournament import Tournament
 from t_management import update_tournament_embeds, create_tournament_embed, Delete_Confirmation_View, Edit_Options_View
 from t_registration import Reg_Msg_Modal
-from t_utils import check_tournament_admin, schedule_notifications
+from t_utils import check_tournament_admin, schedule_custom_notifications, parse_time_string, cancel_scheduled_notifications, parse_seconds_to_human_readable
 from t_running import run_tournament
 import discord
-
 
 class T_Admin(discord.ui.View):
     def __init__(self, tournament:Tournament):
@@ -136,9 +135,19 @@ class T_Admin(discord.ui.View):
         if not self.tournament.tournament_channel_id:
             await interaction.response.send_message("Tournament chat channel does not exist. Please Open Registration to create it before scheduling a notification.", ephemeral=True)
             return
+        
+        # Reload tournament data
+        self.tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name)
+        active_notifications = []
+        for interval in self.tournament.notification_intervals:
+            active_notifications.append(parse_seconds_to_human_readable(interval["seconds"]))
 
-        # Schedule notifications for 24 and 2 hours before the tournament
-        await schedule_notifications(self.tournament, interaction)
+        # Send a view with a select dropdown to choose the number of notifications, then a modal to set the times
+        view = NotificationView(self.tournament)
+        await interaction.response.send_message(
+            "The following notifications will be deleted if you decide to set new ones:\n"
+            f"**{', '.join(active_notifications) if active_notifications else '*No active notifications.*'}**\n\n"
+            "How many notifications would you like to set?", view=view, ephemeral=True)
     
     # Add New Admin button
     @discord.ui.button(label="➕ Add New Admin", style = discord.ButtonStyle.blurple, custom_id="add_admin_button")
@@ -329,3 +338,56 @@ async def restart_tournament(tournament:Tournament, interaction: discord.Interac
         await interaction.followup.send(f"Tournament '{tournament.name}' Restarted successfully.", ephemeral=True)
     else:
         await interaction.response.send_message(f"Tournament '{tournament.name}' Restarted successfully.", ephemeral=True)
+
+# Select dropdown for custom notifications
+class NotificationCountSelect(discord.ui.Select):
+    def __init__(self, tournament: Tournament):
+        options = [discord.SelectOption(label=str(i), value=str(i)) for i in range(1, 6)]
+        super().__init__(placeholder="", min_values=1, max_values=1, options=options)
+        self.tournament = tournament
+
+    async def callback(self, interaction: discord.Interaction):
+        count = int(self.values[0])
+        await interaction.response.send_modal(NotificationTimesModal(self.tournament, count))
+
+# View for selecting the number of notifications and a button to clear all
+class NotificationView(discord.ui.View):
+    def __init__(self, tournament: Tournament):
+        super().__init__()
+        select = NotificationCountSelect(tournament)
+        select.row = 0
+        self.add_item(select)
+        self.tournament = tournament
+
+    @discord.ui.button(label="🧹 Clear Notifications", style = discord.ButtonStyle.red, custom_id="clear_notifications_button", row=1)
+    async def clear_notifications(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+        await cancel_scheduled_notifications(interaction.guild.id, self.tournament.id)   
+        await interaction.response.send_message("All scheduled notifications have been cleared.", ephemeral=True)
+
+# Modal for setting custom notification times
+class NotificationTimesModal(discord.ui.Modal):
+    def __init__(self, tournament: Tournament, count):
+        super().__init__(title="Set Notification Times")
+        self.tournament = tournament
+        for i in range(count):
+            self.add_item(discord.ui.InputText(label=f"Notification {i+1} (e.g.  30m, 12h, 2d)"))
+
+    async def callback(self, interaction: discord.Interaction):
+        intervals = []
+        for child in self.children:
+            value = child.value.strip().lower()
+            # Parse value to seconds
+            seconds = parse_time_string(value)
+            if seconds is None:
+                await interaction.response.send_message(f"Invalid time format: {value}", ephemeral=True)
+                return
+            intervals.append(seconds)
+        
+        # Now schedule notifications using your logic
+        await schedule_custom_notifications(self.tournament, interaction, intervals)
+        if interaction.response.is_done():
+            await interaction.followup.send("Notifications scheduled successfully!", ephemeral=True)
+        else:
+            await interaction.response.send_message("Notifications scheduled sucessfully!", ephemeral=True)

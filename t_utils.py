@@ -2,6 +2,10 @@ import discord
 from tournament import Tournament
 from datetime import datetime, timedelta
 import asyncio
+import re
+
+# Dictionary to hold scheduled notification tasks
+scheduled_notification_tasks = {}
 
 # Check if the user has the admin role or is a server admin
 async def check_tournament_admin(interaction: discord.Interaction, tournament: Tournament):          
@@ -67,7 +71,10 @@ async def send_announcement(interaction: discord.Interaction, tournament: Tourna
         if tournament_channel:
             await tournament_channel.send(f"{message}")
 
-async def schedule_notifications(tournament: Tournament, interaction: discord.Interaction, intervals: list[int] = [24, 2]):
+async def schedule_custom_notifications(tournament: Tournament, interaction: discord.Interaction, intervals: list[int], startup: bool = False):
+    if not startup: # Only clear notifications if this is not the startup process
+        await cancel_scheduled_notifications(interaction.guild.id, tournament.id)
+    
     # Convert the date_time field (Discord timestamp) to a datetime object
     start_time = datetime.fromtimestamp(int(tournament.date_time[3:-3]))
     now = datetime.now()
@@ -77,18 +84,110 @@ async def schedule_notifications(tournament: Tournament, interaction: discord.In
         await interaction.response.send_message("The tournament has already started. Cannot schedule notifications.", ephemeral=True)
         return
 
-    for interval in intervals:
-        delay = (start_time - timedelta(hours=interval) - now).total_seconds()
-        if delay > 0:
-            if interaction.response.is_done():
-                await interaction.followup.send(f"Scheduled notification for {interval} hours before the tournament.", ephemeral=True)
+    # Sort intervals so notifications are scheduled in order
+    intervals = sorted(intervals, reverse=True)
+
+    tasks = []
+    intervals_and_labels = []
+
+    for interval_seconds in intervals:
+        notify_time = start_time - timedelta(seconds=interval_seconds)
+        delay = (notify_time - now).total_seconds()
+        if delay > 0: # Only schedule if the time is in the future
+            # Format a human-readable string for confirmation
+            if interval_seconds >= 86400:
+                label = f"{interval_seconds // 86400} days"
+            elif interval_seconds >= 3600:
+                label = f"{interval_seconds // 3600} hours"
+            elif interval_seconds >= 60:
+                label = f"{interval_seconds // 60} minutes"
             else:
-                await interaction.response.send_message(f"Scheduled notification for {interval} hours before the tournament.", ephemeral=True)
-            asyncio.create_task(send_notification(tournament, interaction, delay, interval))
+                label = f"{interval_seconds} seconds"
+
+            # Add the interval and label to the list that will be stored in the save file
+            intervals_and_labels.append({"seconds": interval_seconds, "label": label})
+
+            if interaction.response.is_done():
+                await interaction.followup.send(f"Scheduled notification for {label} before the tournament.", ephemeral=True)
+            else:
+                await interaction.response.send_message(f"Scheduled notification for {label} before the tournament.", ephemeral=True)
+            task = asyncio.create_task(send_notification(tournament, interaction, delay, label))
+            tasks.append(task)
+        else:
+            if interaction.response.is_done(): 
+                await interaction.followup.send(f"Skipped notification for '{interval_seconds}' seconds (time already passed).", ephemeral=True)
+            else:
+                await interaction.response.send_message(f"Skipped notification for '{interval_seconds}' seconds (time already passed).", ephemeral=True)
+        # Store the task in the scheduled_notification_tasks dictionary
+        scheduled_notification_tasks[tournament.id] = tasks
+
+    # Save intervals to tournament memory and file
+    tournament.notification_intervals = intervals_and_labels
+    tournament.save()
+
+async def cancel_scheduled_notifications(guild_id, tournament_id):
+    tasks = scheduled_notification_tasks.get(tournament_id, [])
+    for task in tasks:
+        task.cancel()
+    scheduled_notification_tasks[tournament_id] = []
+
+    # Get tournament, then clear the notification intervals
+    tournaments = Tournament.load_all_tournaments(guild_id)
+    tournament = next((t for t in tournaments if t.id == tournament_id), None)
+    if tournament:
+        tournament.notification_intervals = []  # Clear the notification intervals from file
+        tournament.save() 
 
 async def send_notification(tournament: Tournament, interaction: discord.Interaction, delay: float, interval: int):
     await asyncio.sleep(delay)  # Wait for the specified delay
     # Get participants role
     participant_role = discord.utils.get(interaction.guild.roles, name=f"({tournament.id}) Tournament Participant")
-    message = f"## 🚨 REMINDER {participant_role.mention} 🚨: The tournament '{tournament.name}' will begin in {interval} hours!"
+    message = f"## 🚨 REMINDER {participant_role.mention} 🚨: The tournament '{tournament.name}' will begin in {interval}!"
     await send_announcement(interaction, tournament, message, "t_channel")
+
+# Function to parse time strings like "30m", "2h", etc.
+def parse_time_string(s):
+    match = re.match(r"(\d+)([smhd])", s)
+    if not match:
+        return None
+    value, unit = match.groups()
+    value = int(value)
+    if unit == "s":
+        return value
+    elif unit == "m":
+        return value * 60
+    elif unit == "h":
+        return value * 3600
+    elif unit == "d":
+        return value * 86400
+    return None
+
+def parse_seconds_to_human_readable(seconds: int) -> str:
+    if seconds >= 86400:
+        return f"{seconds // 86400} days"
+    elif seconds >= 3600:
+        return f"{seconds // 3600} hours"
+    elif seconds >= 60:
+        return f"{seconds // 60} minutes"
+    else:
+        return f"{seconds} seconds"
+
+class DummyInteraction:
+    class DummyResponse:
+        @staticmethod
+        async def send_message(*args, **kwargs):
+            pass  # Do nothing
+
+        @staticmethod
+        def is_done():
+            return True  # Pretend the response is always done
+
+    class DummyFollowup:
+        @staticmethod
+        async def send(*args, **kwargs):
+            pass  # Do nothing
+
+    def __init__(self, guild):
+        self.guild = guild
+        self.response = DummyInteraction.DummyResponse()
+        self.followup = DummyInteraction.DummyFollowup()
