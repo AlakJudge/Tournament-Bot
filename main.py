@@ -1,17 +1,16 @@
-import sys
 import discord
 import os
-from dotenv import load_dotenv
 from t_management import Create_Tournament
 from tournament import Tournament
 from t_admin_menu import T_Admin
 from t_persistant_views import restore_all_views
 from t_running import Start_Match_View
 from t_registration import register_player_to_tournament
-from t_utils import schedule_custom_notifications, DummyInteraction
+from t_utils import *
 
-
-load_dotenv()
+if os.getenv("GITHUB_ACTIONS") != "true":
+    from dotenv import load_dotenv
+    load_dotenv()
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -42,6 +41,7 @@ async def on_ready():
     
     # Force sync slash commands
     await bot.sync_commands()
+    
 
 ##########################
 # SLASH COMMANDS SECTION #
@@ -615,10 +615,137 @@ async def on_guild_join(guild: discord.Guild):
     await guild.create_role(name="BGTB Organizer", permissions=discord.Permissions(use_application_commands=True))
     print(f"Created role 'BGTB Organizer' in the '{guild.name}' server.")
 
+# Function to find members with server tag
+@bot.slash_command(name="find_tagged_members", description="Find members with server tags (Admin only)")
+async def find_tagged_members(
+    ctx: discord.ApplicationContext,
+    search_role: discord.Role = discord.Option(discord.Role, description="Role to filter members by", required=True),
+    tag: str = discord.Option(str, description="Specific tag to search for (optional)", required=True),
+    target_role: discord.Role = discord.Option(discord.Role, description= "Role to check if tagged members have", required=True)
+):
+    # Check if user has administrator permissions
+    if not ctx.user.guild_permissions.administrator:
+        await ctx.respond("❌ This command is only available to server administrators.", ephemeral=True)
+        return
+    
+    await ctx.defer()  # This might take a while
+    
+    try:
+        # Filter members by role first
+        role_members = [member for member in search_role.members if not member.bot]
+        
+        if not role_members:
+            await ctx.followup.send(f"No non-bot members found with the role {search_role.mention}.", ephemeral=True)
+            return
+        
+        initial_msg = await ctx.followup.send(f"🔍 Searching through {len(role_members)} members with role {search_role.mention}...", ephemeral=True)
+        
+        members_with_tags = await find_members_with_tags_filtered(bot, role_members, tag, max_concurrent=50)
+
+        if not members_with_tags:
+            await ctx.followup.send(content=f"No members with role {search_role.mention} found with tag containing '{tag}'.")
+            return
+        
+        members_without_target_role = []
+        lines = []
+
+        for member_data in members_with_tags:
+            member = member_data["member"]
+            has_target_role = target_role in member.roles
+            if not has_target_role:
+                members_without_target_role.append(member)
+            role_status = "✅" if has_target_role else "❌"
+            lines.append(f"{member.mention} has {target_role.mention}? {role_status}")
+
+        
+        # Split lines into chunks of 35
+        chunk_size = 35
+        await ctx.channel.send(f"🏷️ Members with the Server Tag '{tag}' (Role: {search_role.mention}):\n")
+        for i in range(0, len(lines), chunk_size):
+            chunk = lines[i:i + chunk_size]
+            msg = ("\n".join(chunk))
+            await ctx.channel.send(msg)
+        
+        try:
+            await initial_msg.delete()
+        except discord.HTTPException:
+            pass
+        
+        view = AddRoleView(members_with_tags, target_role, members_without_target_role)
+        await ctx.channel.send(content=f"Found {len(members_with_tags)} members with the tag '{tag}' and the role '{search_role.mention}')", view=view)
+
+        
+    except Exception as e:
+        await ctx.channel.send(f"❌ An error occurred while searching for tagged members: {e}", ephemeral=True)
+        print(f"Error in find_tagged_members: {e}")
+
+class AddRoleView(discord.ui.View):
+    def __init__(self, members_with_tags, target_role, members_without_target_role):
+        super().__init__(timeout=None)  
+        self.members_with_tags = members_with_tags
+        self.target_role = target_role
+        self.members_without_target_role = members_without_target_role
+        
+        # Update button label with role name
+        self.add_role_button.label = f"Add '{target_role.name}' role to all"
+        
+        # Disable button if everyone already has the role
+        if not members_without_target_role:
+            self.add_role_button.disabled = True
+            self.add_role_button.label = f"All members already have '{target_role.name}'"
+
+    @discord.ui.button(label="Add role to all", style=discord.ButtonStyle.green, emoji="➕")
+    async def add_role_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Check permissions again
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ Only administrators can use this button.", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        
+        try:
+            # Get all members without the target role from the full list (not just first 25)
+            all_members_without_role = []
+            for member_data in self.members_with_tags:
+                member: discord.Member = member_data["member"]
+                if self.target_role not in member.roles:
+                    all_members_without_role.append(member)
+            
+            if not all_members_without_role:
+                await interaction.followup.send(f"✅ All members already have the {self.target_role.mention} role!", ephemeral=True)
+                return
+            
+            # Add role to all members who don't have it
+            success_count = 0
+            failed_members = []
+            
+            for member in all_members_without_role:
+                try:
+                    await member.add_roles(self.target_role, reason=f"Added via tagged members command by {interaction.user}")
+                    success_count += 1
+                except discord.Forbidden:
+                    failed_members.append(f"{member.name} (permissions)")
+                except discord.HTTPException as e:
+                    failed_members.append(f"{member.name} (error: {e})")
+            
+            # Create response message
+            response_parts = [f"✅ Successfully added {self.target_role.mention} role to **{success_count}** member(s)."]
+            
+            if failed_members:
+                response_parts.append(f"\n❌ Failed to add role to {len(failed_members)} member(s):")
+                response_parts.append(f"```{', '.join(failed_members[:10])}{'...' if len(failed_members) > 10 else ''}```")
+            
+            await interaction.followup.send("".join(response_parts), ephemeral=True)
+            await interaction.edit_original_response(view=self)
+            
+        except Exception as e:
+            await interaction.followup.send(f"❌ An error occurred while adding roles: {e}", ephemeral=True)
+            print(f"Error adding roles: {e}")
+            
 def main():
     # Fetch the environment status from the env file. Either "dev" or "live"
     ENVIRONMENT = os.getenv("ENVIRONMENT")  
-    TOKEN = os.getenv("DEV_TOKEN") if ENVIRONMENT == "dev" else os.getenv("LIVE_TOKEN") # 
+    TOKEN = os.getenv("LIVE_TOKEN") if ENVIRONMENT == "live" else os.getenv("DEV_TOKEN") # 
     bot.run(TOKEN)
 
 if __name__ == '__main__':
