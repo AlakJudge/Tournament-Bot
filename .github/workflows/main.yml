@@ -1,0 +1,28 @@
+name: Deploy Discord Bot
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      ENVIRONMENT: live     
+      LIVE_TOKEN: ${{ secrets.LIVE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Debug environment
+        run: |
+          echo "ENVIRONMENT: $ENVIRONMENT"
+          echo "LIVE_TOKEN length: ${#LIVE_TOKEN}"
+          echo "LIVE_TOKEN first 10 chars: ${LIVE_TOKEN:0:10}"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run bot
+        run: python main.py
