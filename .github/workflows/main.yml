@@ -1,0 +1,24 @@
+name: Deploy Discord Bot
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      ENVIRONMENT: live         # or 'dev' for development
+      DEV_TOKEN: ${{ secrets.DEV_TOKEN }}
+      LIVE_TOKEN: ${{ secrets.LIVE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run bot
+        run: python main.py
