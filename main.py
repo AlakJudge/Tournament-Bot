@@ -1,7 +1,5 @@
-import sys
 import discord
 import os
-from dotenv import load_dotenv
 from t_management import Create_Tournament
 from tournament import Tournament
 from t_admin_menu import T_Admin
@@ -10,8 +8,9 @@ from t_running import Start_Match_View
 from t_registration import register_player_to_tournament
 from t_utils import schedule_custom_notifications, DummyInteraction
 
-
-load_dotenv()
+if os.getenv("GITHUB_ACTIONS") != "true":
+    from dotenv import load_dotenv
+    load_dotenv()
 
 intents = discord.Intents.default()
 intents.message_content = True
