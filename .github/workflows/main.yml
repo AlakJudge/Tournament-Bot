@@ -9,8 +9,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      ENVIRONMENT: live         # or 'dev' for development
-      DEV_TOKEN: ${{ secrets.DEV_TOKEN }}
+      ENVIRONMENT: live     
       LIVE_TOKEN: ${{ secrets.LIVE_TOKEN }}
     steps:
       - uses: actions/checkout@v3
