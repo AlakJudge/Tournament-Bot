@@ -745,7 +745,7 @@ class AddRoleView(discord.ui.View):
 def main():
     # Fetch the environment status from the env file. Either "dev" or "live"
     ENVIRONMENT = os.getenv("ENVIRONMENT")  
-    TOKEN = os.getenv("LIVE_TOKEN") if ENVIRONMENT == "live" else os.getenv("DEV_TOKEN") # 
+    TOKEN = os.getenv("DEV_TOKEN") if ENVIRONMENT == "dev" else os.getenv("LIVE_TOKEN") # 
     bot.run(TOKEN)
 
 if __name__ == '__main__':
