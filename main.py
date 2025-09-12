@@ -1,5 +1,6 @@
 import discord
 import os
+import json
 from t_management import Create_Tournament
 from tournament import Tournament
 from t_admin_menu import T_Admin
@@ -741,7 +742,41 @@ class AddRoleView(discord.ui.View):
         except Exception as e:
             await interaction.followup.send(f"❌ An error occurred while adding roles: {e}", ephemeral=True)
             print(f"Error adding roles: {e}")
-            
+
+@bot.slash_command(name="export_tournament", description="Export the tournament JSON data as a code block")
+async def export_tournament_json(
+    ctx: discord.ApplicationContext,
+    tournament_id: int = discord.Option(int, description="Tournament ID to export")
+):
+    # Only allow users with administrator permissions to use this command
+    if not ctx.user.guild_permissions.administrator:
+        await ctx.respond("❌ This command is only available to server administrators.", ephemeral=True)
+        return
+
+    # Load all tournaments for the guild
+    tournaments = Tournament.load_all_tournaments(ctx.guild.id)
+    tournament = next((t for t in tournaments if t.id == int(tournament_id)), None)
+    if not tournament:
+        await ctx.respond("Tournament not found.", ephemeral=True)
+        return
+
+    # Convert tournament object to dict if needed
+    if hasattr(tournament, "to_dict"):
+        tournament_data = tournament.to_dict()
+    else:
+        tournament_data = tournament.__dict__
+
+    # Format as pretty JSON
+    json_str = json.dumps(tournament_data, indent=2)
+    # Discord code block (triple backticks)
+    msg = f"```json\n{json_str}\n```"
+
+    # Discord message limit is 2000 chars
+    if len(msg) > 2000:
+        await ctx.respond("Tournament data is too large to send as a single message.", ephemeral=True)
+    else:
+        await ctx.respond(msg)  
+
 def main():
     # Fetch the environment status from the env file. Either "dev" or "live"
     ENVIRONMENT = os.getenv("ENVIRONMENT")  
