@@ -96,7 +96,10 @@ async def tournament_list(ctx: discord.ApplicationContext):
     # Loop to add each tournament from the tournaments list
     for t in tournaments:
         list.add_field(name=f"({t.id}) - {t.name}", value=f"Game: {t.game}", inline=False)
-    await ctx.respond(embed=list)
+    if ctx.response.is_done():
+        await ctx.followup.send(embed=list)
+    else:
+        await ctx.respond(embed=list)
 
 # Slash command to ADMIN a tournament
 @bot.slash_command(name = "admin", description = "Administrate a Tournament by entering its ID number.")
