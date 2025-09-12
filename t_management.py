@@ -72,7 +72,7 @@ def create_tournament_embed(tournament:Tournament):
     return embed
 
 # Create the new tournament and save to file
-def create_tournament(name, reg_channel, game, date, time, date_time, prize, player_cap: int, guild_id):
+def create_tournament(name, reg_channel, game, date, time, date_time, prize, player_cap: int, guild_id: int):
     tournaments = Tournament.load_all_tournaments(guild_id)
     # Set the tournament ID
     if tournaments:

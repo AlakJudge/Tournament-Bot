@@ -743,8 +743,8 @@ class AddRoleView(discord.ui.View):
             await interaction.followup.send(f"❌ An error occurred while adding roles: {e}", ephemeral=True)
             print(f"Error adding roles: {e}")
 
-@bot.slash_command(name="export_tournament", description="Export the tournament JSON data as a code block")
-async def export_tournament_json(
+@bot.slash_command(name="export_tournament", description="Export the tournament JSON data as a code block", guild_ids = [1037337914415259648])
+async def export_tournament(
     ctx: discord.ApplicationContext,
     tournament_id: int = discord.Option(int, description="Tournament ID to export")
 ):
@@ -771,11 +771,11 @@ async def export_tournament_json(
     # Discord code block (triple backticks)
     msg = f"```json\n{json_str}\n```"
 
-    # Discord message limit is 2000 chars
+    # Discord message limit is 2000 chars. Send it in multiple messages if needed
     if len(msg) > 2000:
-        await ctx.respond("Tournament data is too large to send as a single message.", ephemeral=True)
-    else:
-        await ctx.respond(msg)  
+        chunks = [msg[i:i+1990] for i in range(0, len(msg), 1990)]
+        for chunk in chunks:
+            await ctx.respond(chunk)
 
 def main():
     # Fetch the environment status from the env file. Either "dev" or "live"
