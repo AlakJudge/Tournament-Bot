@@ -72,8 +72,8 @@ def create_tournament_embed(tournament:Tournament):
     return embed
 
 # Create the new tournament and save to file
-def create_tournament(name, reg_channel, game, date, time, date_time, prize, player_cap: int):
-    tournaments = Tournament.load_all_tournaments(reg_channel.guild.id)
+def create_tournament(name, reg_channel, game, date, time, date_time, prize, player_cap: int, guild_id):
+    tournaments = Tournament.load_all_tournaments(guild_id)
     # Set the tournament ID
     if tournaments:
         id = max([int(t.id) for t in tournaments]) + 1
@@ -89,7 +89,8 @@ def create_tournament(name, reg_channel, game, date, time, date_time, prize, pla
         time=time,
         date_time=date_time,
         prize=prize,
-        player_cap=player_cap
+        player_cap=player_cap,
+        guild_id=guild_id
         )
 
     return tournament
