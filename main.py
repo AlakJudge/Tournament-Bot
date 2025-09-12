@@ -107,6 +107,7 @@ async def admin(
     await ctx.defer() 
     # Find the tournament
     tournaments = Tournament.load_all_tournaments(ctx.guild.id)
+    print(tournaments[0])
     tournament: Tournament = next((t for t in tournaments if t.id == int(id)), None) # Go through all tournaments and find the id entered.
 
     if not tournament:
@@ -137,7 +138,7 @@ async def set_reg_channel(ctx: discord.ApplicationContext, tournament_id: int, r
         channel_types=[discord.ChannelType.text, discord.ChannelType.news]
         )):
     # Get tournament
-    tournaments = Tournament.load_all_tournaments(ctx.guild.id)
+    tournaments = Tournament.load_all_tournaments(ctx.guild.id) # 
     tournament: Tournament = next((t for t in tournaments if t.id == int(tournament_id)), None)
     if not tournament:
         await ctx.respond("Tournament not found.", ephemeral=True)
