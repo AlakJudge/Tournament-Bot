@@ -23,7 +23,7 @@ class Registration(discord.ui.View):
         tournament_channel = await interaction.guild.fetch_channel(self.tournament.tournament_channel_id)
 
         # Update tournament data
-        self.tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name)
+        self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
 
         # Check if player is registered
         if player_name not in self.tournament.players and player_name not in self.tournament.reserves:
@@ -102,7 +102,7 @@ class kick_view(discord.ui.View):
     @discord.ui.button(label="Kick", style=discord.ButtonStyle.red, custom_id="kick_button")
     async def kick_button(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Reload the latest tournament data
-        tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name)
+        tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
         self.tournament = tournament  # Update the view's reference
         # Get necessary user and channels
         player = discord.utils.get(interaction.guild.members, name=self.player_name)
@@ -141,7 +141,7 @@ async def register_player_to_tournament(tournament, player, interaction=None):
     player = discord.utils.get(interaction.guild.members, name=player_name) 
     participants_channel = await interaction.guild.fetch_channel(tournament.participants_channel_id)
     # Reload the latest tournament data
-    tournament = Tournament.load_tournament_by_name(interaction.guild.id, tournament.name)
+    tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
 
     # Get tournament details and check if the user is already registered. Stop duplicate register if so.
     if player_name in tournament.players or player_name in tournament.reserves:
@@ -198,7 +198,10 @@ async def close_registration(interaction: discord.Interaction, tournament: Tourn
                 await interaction.followup.send("Registration message not found.", ephemeral=True)
             else:
                 await interaction.response.send_message("Registration message not found.", ephemeral=True)
-       
+    
+    # Update tournament data
+    tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
+
     # Edit registration status
     tournament.edit_reg_status("Closed")
     tournament.save()

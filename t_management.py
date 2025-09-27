@@ -108,7 +108,7 @@ class Edit_Options_View(discord.ui.View):
 # Drop-down menu to edit tournament
 class Edit_Select_Menu(discord.ui.Select):
     def __init__(self, tournament:Tournament):
-        self.tournament = tournament
+        self.tournament: Tournament = tournament
         options = [
                 discord.SelectOption(
                     label="Edit Name",
@@ -163,7 +163,11 @@ class Editing_Modal(discord.ui.Modal):
         self.field = field
 
     async def callback(self, interaction: discord.Interaction):
+        # Update tournament data
+        self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id) 
+
         new_value = self.children[0].value
+        
         match self.field:
             case "Name":
                 self.tournament.edit_name(new_value)
@@ -204,7 +208,7 @@ class Editing_Modal(discord.ui.Modal):
 
 # Edit the tournament embeds
 async def update_tournament_embeds(t:Tournament, interaction: discord.Interaction):
-    tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, t.name)
+    tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, t.id)
     new_embed = create_tournament_embed(tournament)
 
     # Edit registration embed in the designated registration channel

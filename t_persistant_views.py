@@ -3,6 +3,7 @@ from t_registration import Registration, kick_view
 from t_admin_menu import T_Admin
 from t_running import Tournament_Running_View, Start_Match_View
 import re
+import discord
 
 async def restore_registration_view(bot):
     # Iterate through each guild the bot is in
@@ -16,22 +17,34 @@ async def restore_registration_view(bot):
                         view = Registration(tournament)
                         bot.add_view(view, message_id=tournament.reg_msg_id)
                     except Exception as e:
-                        print(f"Failed to restore registration view for tournament {tournament.id}: {e}")
+                        print(f"Failed to restore registration view for tournament {tournament.id} in server {guild.id}: {e}")
 
 async def restore_admin_menu_view(bot):
     # Iterate through each guild the bot is in
     for guild in bot.guilds:
         for tournament in Tournament.load_all_tournaments(guild.id):
-            if tournament.admin_msg_id:
+            if tournament.admin_msg_id and tournament.admin_msg_channel_id:  # Check both exist
                 # Get the tournaments-lounge channel
                 channel = guild.get_channel(tournament.admin_msg_channel_id)
                 if channel:
                     try:
+                        # Check if bot has access to the channel
+                        permissions = channel.permissions_for(guild.me)
+                        if not permissions.view_channel or not permissions.read_message_history:
+                            print(f"Bot lacks permissions for admin channel {channel.id} in tournament {tournament.id}, server {guild.id}")
+                            continue
+                            
                         await channel.fetch_message(tournament.admin_msg_id)
                         view = T_Admin(tournament)
                         bot.add_view(view, message_id=tournament.admin_msg_id)
+                    except discord.NotFound:
+                        print(f"Admin message not found for tournament {tournament.id} in server {guild.id}")
+                    except discord.Forbidden:
+                        print(f"Bot lacks permissions to access admin message for tournament {tournament.id} in server {guild.id}")
                     except Exception as e:
-                        print(f"Failed to restore admin menu view for tournament {tournament.id}: {e}")
+                        print(f"Failed to restore admin menu view for tournament {tournament.id} in server {guild.id}: {e}")
+                else:
+                    print(f"Admin channel {tournament.admin_msg_channel_id} not found for tournament {tournament.id} in server {guild.id}")
 
 async def restore_kick_views(bot):
     # Iterate through each guild the bot is in
@@ -51,20 +64,36 @@ async def restore_kick_views(bot):
                         view = kick_view(tournament, player_name)
                         bot.add_view(view, message_id=message.id)
                 except Exception as e:
-                    print(f"Failed to restore kick views for tournament {tournament.id}: {e}")
+                    print(f"Failed to restore kick views for tournament {tournament.id} in server {guild.id}: {e}")
 
 async def restore_tournament_channel_view(bot):
     # Iterate through each guild the bot is in
     for guild in bot.guilds:
         for tournament in Tournament.load_all_tournaments(guild.id):
-            channel = guild.get_channel(tournament.tournament_channel_id)
-            if channel:
-                try:
-                    await channel.fetch_message(tournament.tournament_channel_msg_id)
-                    view = Tournament_Running_View(tournament)
-                    bot.add_view(view, message_id=tournament.tournament_channel_msg_id)
-                except Exception as e:
-                    print(f"Failed to restore tournament channel view for tournament {tournament.id}: {e}")
+            # Check if both channel and message IDs exist and are not None
+            if tournament.tournament_channel_id and tournament.tournament_channel_msg_id:
+                channel = guild.get_channel(tournament.tournament_channel_id)
+                if channel:
+                    try:
+                        # Check if bot has access to the channel
+                        permissions = channel.permissions_for(guild.me)
+                        if not permissions.view_channel or not permissions.read_message_history:
+                            print(f"Bot lacks permissions for tournament channel {channel.id} in tournament {tournament.id}")
+                            continue
+                            
+                        await channel.fetch_message(tournament.tournament_channel_msg_id)
+                        view = Tournament_Running_View(tournament)
+                        bot.add_view(view, message_id=tournament.tournament_channel_msg_id)
+                    except discord.NotFound:
+                        print(f"Tournament message {tournament.tournament_channel_msg_id} not found for tournament {tournament.id} in server {guild.id}")
+                    except discord.Forbidden:
+                        print(f"Bot lacks permissions to access tournament message for server {guild.id}, tournament {tournament.id}")
+                    except Exception as e:
+                        print(f"Failed to restore tournament channel view for server {guild.id}, tournament {tournament.id}: {e}")
+                else:
+                    print(f"Tournament channel {tournament.tournament_channel_id} not found for tournament {tournament.id} (server: {guild.id})")
+            else:
+                print(f"Tournament {tournament.id} in server {guild.id} is missing channel or message ID (channel: {tournament.tournament_channel_id}, msg: {tournament.tournament_channel_msg_id})")
 
 async def restore_threads_views(bot):
     # Iterate through each guild the bot is in
@@ -84,9 +113,9 @@ async def restore_threads_views(bot):
                             if msg_id:
                                 view = Start_Match_View(match_id=match_id, tournament=tournament)
                                 bot.add_view(view, message_id=msg_id)
-                                print(f"Restored view for thread {thread_id} in tournament {tournament.id}")
+                                print(f"Restored view for thread {thread_id} in tournament {tournament.id} in server {guild.id}")
                 except Exception as e:
-                    print(f"Failed to restore threads views for tournament {tournament.id}: {e}")
+                    print(f"Failed to restore threads views for tournament {tournament.id} in server {guild.id}: {e}")
 
 
 async def restore_all_views(bot):

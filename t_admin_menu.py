@@ -21,7 +21,7 @@ class T_Admin(discord.ui.View):
         if not await check_tournament_admin(interaction, self.tournament):
             return
         # Update tournament data
-        self.tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name)
+        self.tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
 
         registration_view = Registration(self.tournament)
         reg_channel = await interaction.guild.fetch_channel(self.tournament.reg_channel)
@@ -38,8 +38,21 @@ class T_Admin(discord.ui.View):
                 self.tournament.tournament_channel_id = tournament_channel.id
 
             if not self.tournament.participants_channel_id:
+                # Create or fetch the admin role for the tournament
+                admin_role = discord.utils.get(interaction.guild.roles, name=f"({self.tournament.id}) Tournament Admin")
+                if not admin_role:
+                    # Create the admin role if it doesn't exist
+                    admin_role = await interaction.guild.create_role(
+                        name=f"({self.tournament.id}) Tournament Admin",
+                        color=discord.Color.blue(),
+                        mentionable=True
+                    )
+                    # Give the role to the tournament owner
+                    owner = interaction.guild.get_member(self.tournament.owner)
+                    if owner:
+                        await owner.add_roles(admin_role)
+
                 # Create channel for participants logs and management, accessible only to tournament admins
-                admin_role = discord.utils.get(interaction.guild.roles, name=f"({self.tournament.id}) Tournament Admin") # Fetch admin role
                 overwrites = {
                         interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),  # Deny access to @everyone
                         admin_role: discord.PermissionOverwrite(view_channel=True)  # Grant access to the admin
@@ -137,7 +150,7 @@ class T_Admin(discord.ui.View):
             return
         
         # Reload tournament data
-        self.tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name)
+        self.tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
         active_notifications = []
         for interval in self.tournament.notification_intervals:
             active_notifications.append(parse_seconds_to_human_readable(interval["seconds"]))
@@ -274,7 +287,7 @@ class Thread_Msg_Modal(discord.ui.Modal):
             required=True))
 
     async def callback(self, interaction: discord.Interaction):
-        self.tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, self.tournament.name) # Update tournament data
+        self.tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id) # Update tournament data
         msg_content = self.children[0].value
         self.tournament.edit_thread_msg(msg_content)
         self.tournament.save()
@@ -284,7 +297,7 @@ class Thread_Msg_Modal(discord.ui.Modal):
 # Function to show list of registered users
 async def show_registered_users(t: Tournament, interaction: discord.Interaction):
     # Get updated tournament data
-    tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, t.name)
+    tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, t.id)
     # Get the list of registered players
     players = tournament.players
     reserves = tournament.reserves
@@ -320,7 +333,7 @@ class Restart_Confirmation_View(discord.ui.View):
 
 async def restart_tournament(tournament:Tournament, interaction: discord.Interaction):
     # Update tournament data
-    tournament: Tournament = Tournament.load_tournament_by_name(interaction.guild.id, tournament.name)
+    tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
     
     await interaction.response.defer()
 
