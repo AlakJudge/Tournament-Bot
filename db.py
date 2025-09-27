@@ -1,9 +1,10 @@
 import os
-import json
 from pymongo import MongoClient
-from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env file only if not in GitHub Actions environment
+if os.getenv("GITHUB_ACTIONS") != "true":
+    from dotenv import load_dotenv
+    load_dotenv()
 
 # Use your MongoDB connection string from your cluster
 MONGODB_URI = os.getenv("MONGODB_URI")
