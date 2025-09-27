@@ -96,21 +96,19 @@ async def tournament_list(ctx: discord.ApplicationContext):
     # Loop to add each tournament from the tournaments list
     for t in tournaments:
         list.add_field(name=f"({t.id}) - {t.name}", value=f"Game: {t.game}", inline=False)
-    if ctx.response.is_done():
-        await ctx.followup.send(embed=list)
-    else:
-        await ctx.respond(embed=list)
+    
+    await ctx.respond(embed=list)
+
 
 # Slash command to ADMIN a tournament
 @bot.slash_command(name = "admin", description = "Administrate a Tournament by entering its ID number.")
 async def admin(
     ctx: discord.ApplicationContext, 
-    id:int = discord.Option(description="Find this ID number by using the tournaments_list command")
+    id = discord.Option(description="Find this ID number by using the tournaments_list command")
     ):
     await ctx.defer() 
     # Find the tournament
     tournaments = Tournament.load_all_tournaments(ctx.guild.id)
-    print(tournaments[0])
     tournament: Tournament = next((t for t in tournaments if t.id == int(id)), None) # Go through all tournaments and find the id entered.
 
     if not tournament:
@@ -747,7 +745,7 @@ class AddRoleView(discord.ui.View):
             await interaction.followup.send(f"❌ An error occurred while adding roles: {e}", ephemeral=True)
             print(f"Error adding roles: {e}")
 
-@bot.slash_command(name="export_tournament", description="Export the tournament JSON data as a code block", guild_ids = [1037337914415259648])
+@bot.slash_command(name="export_tournament", description="Export the tournament JSON data as a code block")
 async def export_tournament(
     ctx: discord.ApplicationContext,
     tournament_id: int = discord.Option(int, description="Tournament ID to export")

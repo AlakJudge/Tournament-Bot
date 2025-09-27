@@ -1,11 +1,11 @@
 [
     {
         "id": 1,
-        "reg_channel": 1109563309323194468,
+        "reg_channel": 1109818782618243202,
         "reg_msg_id": 1384163450284146692,
         "reg_status": "Closed",
-        "admin_msg_channel_id": 1370812686547292212,
-        "admin_msg_id": 1389747676769288293,
+        "admin_msg_channel_id": 1109818782618243202,
+        "admin_msg_id": 1416112069329289236,
         "tournament_channel_id": 1384163452393754707,
         "tournament_channel_msg_id": 1384163598581891122,
         "participants_channel_id": 1384163453736058993,
@@ -375,5 +375,311 @@
         "tournament_winner": "chizzybillions",
         "guild_id": 1037337914415259648,
         "archived": true
+    },
+    {
+        "id": 2,
+        "reg_channel": 1109563309323194468,
+        "reg_msg_id": 1416118355051417714,
+        "reg_status": "Closed",
+        "admin_msg_channel_id": 1324313372891680769,
+        "admin_msg_id": 1416118054042992740,
+        "tournament_channel_id": 1416118357236908163,
+        "tournament_channel_msg_id": 1418211408432074834,
+        "participants_channel_id": 1416118358721433600,
+        "curr_num_matches": 1,
+        "name": "September Tournament",
+        "game": "Monopoly",
+        "date": "18092025",
+        "time": "15:00",
+        "date_time": "<t:1758204000:F>",
+        "prize": "Theme Collection",
+        "notification_intervals": [],
+        "player_cap": 64,
+        "thread_msg": "### Hello participants! Please, be respectful and follow the tournament rules!",
+        "admin_role": "(2) Tournament Admin",
+        "owner": 1214191755570974751,
+        "participants_role": "(2) Tournament Participant",
+        "round": 3,
+        "players": [
+            "jaydog999",
+            "navu.",
+            "thisferv27",
+            "tayinkz4272",
+            "mohsin101010",
+            "connor008",
+            "accb34",
+            "muz.jpg",
+            "mysterious_tiger_65624",
+            "tiffenys",
+            "okayitsdray",
+            "kyles1111",
+            "hotcoco.",
+            "hichamtahiri3032",
+            "r3h4n88",
+            "christyaji",
+            "jaijai4097",
+            "mirrorball0029",
+            "chizzybillions",
+            "beanluoluo",
+            "devstarlight",
+            "fareed2279",
+            "sam327.",
+            "marcosolo885170",
+            "gunion",
+            "firstsuit780",
+            "tjadesina",
+            "iabdullah3214",
+            "alexkiki21",
+            "maeblue.",
+            "smashngrab0958",
+            "alonewarrior5216",
+            "sixmelody_06",
+            "v0mdragon",
+            "peachlovessummer",
+            "landerella7787",
+            "blissfulbars9433",
+            "m.e4404",
+            "mr420_smoking_dubis",
+            "padawanlearner",
+            "captainj6_40140",
+            "sonic1998",
+            "boog1066",
+            "sleepynawake0123",
+            "wx_hardik",
+            "lanadelre",
+            "rodney2times",
+            "cute_papaya_97856",
+            "tomato12342",
+            "dio9595"
+        ],
+        "reserves": [],
+        "matches": [
+            {
+                "id": "R1-G1",
+                "players": [],
+                "winners": [],
+                "thread_id": 1418211412970438779,
+                "thread_msg_id": 1418211445706850365
+            },
+            {
+                "id": "R1-G2",
+                "players": [
+                    "connor008",
+                    "accb34",
+                    "muz.jpg",
+                    "mysterious_tiger_65624",
+                    "tiffenys",
+                    "mirrorball0029",
+                    "jaijai4097",
+                    "yarsait"
+                ],
+                "winners": [
+                    "mirrorball0029",
+                    "yarsait"
+                ],
+                "thread_id": 1418211449481859194,
+                "thread_msg_id": 1418211481614553152
+            },
+            {
+                "id": "R1-G3",
+                "players": [
+                    "okayitsdray",
+                    "kyles1111",
+                    "hotcoco.",
+                    "hichamtahiri3032",
+                    "mohsin101010"
+                ],
+                "winners": [
+                    "okayitsdray",
+                    "hotcoco."
+                ],
+                "thread_id": 1418211485510799430,
+                "thread_msg_id": 1418211497200451605
+            },
+            {
+                "id": "R1-G4",
+                "players": [],
+                "winners": [],
+                "thread_id": 1418211499608113233,
+                "thread_msg_id": 1418211527814545460
+            },
+            {
+                "id": "R1-G5",
+                "players": [],
+                "winners": [],
+                "thread_id": 1418211531325313088,
+                "thread_msg_id": 1418211559431475281
+            },
+            {
+                "id": "R1-G6",
+                "players": [
+                    "marcosolo885170",
+                    "gunion",
+                    "firstsuit780",
+                    "beanluoluo",
+                    "m.e4404",
+                    "blissfulbars9433"
+                ],
+                "winners": [
+                    "beanluoluo",
+                    "blissfulbars9433"
+                ],
+                "thread_id": 1418211562078081037,
+                "thread_msg_id": 1418211574132248636
+            },
+            {
+                "id": "R1-G7",
+                "players": [
+                    "tjadesina",
+                    "maeblue.",
+                    "v0mdragon",
+                    "dio9595",
+                    "r3h4n88"
+                ],
+                "winners": [
+                    "tjadesina",
+                    "v0mdragon"
+                ],
+                "thread_id": 1418211577248743455,
+                "thread_msg_id": 1418211589684854949
+            },
+            {
+                "id": "R1-G8",
+                "players": [
+                    "smashngrab0958",
+                    "alonewarrior5216",
+                    "peachlovessummer",
+                    "blissfulbars9433"
+                ],
+                "winners": [
+                    "smashngrab0958",
+                    "alonewarrior5216",
+                    "peachlovessummer"
+                ],
+                "thread_id": 1418211592251772958,
+                "thread_msg_id": 1418211604087963718
+            },
+            {
+                "id": "R1-G9",
+                "players": [],
+                "winners": [],
+                "thread_id": 1418211606243971082,
+                "thread_msg_id": 1418211618688471153
+            },
+            {
+                "id": "R1-G10",
+                "players": [
+                    "padawanlearner",
+                    "captainj6_40140",
+                    "sonic1998",
+                    "tygroom",
+                    "bussindoggy"
+                ],
+                "winners": [
+                    "bussindoggy",
+                    "captainj6_40140"
+                ],
+                "thread_id": 1418211621112647770,
+                "thread_msg_id": 1418211633414537357
+            },
+            {
+                "id": "R1-G11",
+                "players": [
+                    "boog1066",
+                    "sleepynawake0123",
+                    "wx_hardik",
+                    "alexkiki21",
+                    "sixmelody_06"
+                ],
+                "winners": [
+                    "wx_hardik",
+                    "sleepynawake0123",
+                    "sixmelody_06"
+                ],
+                "thread_id": 1418211636606537859,
+                "thread_msg_id": 1418211664226025595
+            },
+            {
+                "id": "R1-G12",
+                "players": [],
+                "winners": [],
+                "thread_id": 1418211666897932339,
+                "thread_msg_id": 1418211677995798658
+            },
+            {
+                "id": "R2-G1",
+                "players": [
+                    "wx_hardik",
+                    "smashngrab0958",
+                    "blissfulbars9433",
+                    "mirrorball0029"
+                ],
+                "winners": [
+                    "wx_hardik"
+                ],
+                "thread_id": 1418511803750809610,
+                "thread_msg_id": 1418511818480947411
+            },
+            {
+                "id": "R2-G2",
+                "players": [
+                    "tjadesina",
+                    "v0mdragon",
+                    "beanluoluo",
+                    "yarsait",
+                    "boog1066"
+                ],
+                "winners": [
+                    "tjadesina"
+                ],
+                "thread_id": 1418511820896866355,
+                "thread_msg_id": 1418511834536869961
+            },
+            {
+                "id": "R2-G3",
+                "players": [
+                    "bussindoggy",
+                    "sixmelody_06",
+                    "sleepynawake0123",
+                    "okayitsdray"
+                ],
+                "winners": [
+                    "bussindoggy"
+                ],
+                "thread_id": 1418511839117185135,
+                "thread_msg_id": 1418511854308954245
+            },
+            {
+                "id": "R2-G4",
+                "players": [
+                    "hotcoco.",
+                    "alonewarrior5216",
+                    "captainj6_40140",
+                    "peachlovessummer"
+                ],
+                "winners": [
+                    "captainj6_40140"
+                ],
+                "thread_id": 1418511857932566669,
+                "thread_msg_id": 1418511871740350585
+            },
+            {
+                "id": "R3-G1",
+                "players": [
+                    "captainj6_40140",
+                    "bussindoggy",
+                    "tjadesina",
+                    "wx_hardik"
+                ],
+                "winners": [
+                    "tjadesina"
+                ],
+                "thread_id": 1418626141455126580,
+                "thread_msg_id": 1418626155950641205
+            }
+        ],
+        "tournament_winner": "tjadesina",
+        "guild_id": 1037337914415259648,
+        "archived": false
     }
 ]

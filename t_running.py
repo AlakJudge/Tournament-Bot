@@ -161,11 +161,11 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
         admin_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.admin_role)    
         
         if not tournament.thread_msg:
-            await thread.send("### Hello participants! Please, be respectful and respect the tournament rules!")
+            await thread.send("### Hello participants! Please, be respectful and follow the tournament rules!")
         else:
             await thread.send(tournament.thread_msg)
         
-        start_match_view = await thread.send(f"Once all players are ready, an Admin will press the button below to start the match.\n"
+        start_match_view = await thread.send(f"Once the match is over, an Admin will press the button below to set the winner of the match.\n"
                                             f"*Tag {admin_role.mention} if you need help with anything*", view=start_match_view)
         await start_match_view.pin()
         # Save the message ID of the thread message with the view

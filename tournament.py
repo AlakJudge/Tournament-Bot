@@ -115,9 +115,12 @@ class Tournament:
         self.tournament_winner = ""
 
     # Save the tournament details to the json file
-    def save(self):
+    def save(self, exclude_archived=False):
         # Get existing tournaments
-        tournaments = Tournament.load_all_tournaments(self.guild_id)
+        if not exclude_archived:
+            tournaments = Tournament.load_all_tournaments_with_archived(self.guild_id)
+        else:
+            tournaments = Tournament.load_all_tournaments(self.guild_id)
 
         file_path = Tournament.get_guild_file(self.guild_id)
 
@@ -176,7 +179,7 @@ class Tournament:
             json.dump([t.__dict__ for t in tournaments], file, indent=4)
     
     @staticmethod
-    def load_all_tournaments(guild_id):
+    def load_all_tournaments(guild_id: int):
         file_path = Tournament.get_guild_file(guild_id)
         tournaments = []
 
@@ -189,6 +192,56 @@ class Tournament:
                 for item in data:
                     if item.get("archived", True): # Skip archived tournaments
                         continue
+                    tournaments.append(
+                        Tournament(
+                            id=item["id"],
+                            reg_channel=item["reg_channel"],
+                            reg_msg_id=item["reg_msg_id"],
+                            reg_status=item["reg_status"],
+                            admin_msg_channel_id=item.get("admin_msg_channel_id"),
+                            admin_msg_id=item["admin_msg_id"],
+                            tournament_channel_id=item["tournament_channel_id"],
+                            tournament_channel_msg_id=item["tournament_channel_msg_id"],
+                            participants_channel_id=item["participants_channel_id"],
+                            curr_num_matches=item["curr_num_matches"],
+                            name=item["name"],
+                            game=item["game"],
+                            date=item["date"],
+                            time=item["time"],
+                            date_time=item["date_time"],
+                            prize=item["prize"],
+                            notification_intervals=item.get("notification_intervals", []),
+                            player_cap=item.get("player_cap"),
+                            thread_msg=item.get("thread_msg"),
+                            admin_role=item["admin_role"],
+                            owner=item["owner"],
+                            participants_role=item["participants_role"],
+                            round=item.get("round", 0),
+                            players=item["players"],
+                            reserves=item["reserves"],
+                            matches=item["matches"],
+                            tournament_winner=item.get("tournament_winner", ""),
+                            guild_id=guild_id,
+                            archived=item.get("archived", False)
+                        )
+                    )
+
+        except json.JSONDecodeError:
+            print("File empty or invalid")
+        
+        return tournaments
+
+    def load_all_tournaments_with_archived(guild_id: int):
+        file_path = Tournament.get_guild_file(guild_id)
+        tournaments = []
+
+        if not os.path.exists(file_path):
+            with open(file_path, "w") as file:
+                json.dump([], file)
+        try:
+            with open(file_path, "r") as file:
+                data = json.load(file)
+                for item in data:
                     tournaments.append(
                         Tournament(
                             id=item["id"],

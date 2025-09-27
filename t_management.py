@@ -73,7 +73,7 @@ def create_tournament_embed(tournament:Tournament):
 
 # Create the new tournament and save to file
 def create_tournament(name, reg_channel, game, date, time, date_time, prize, player_cap: int, guild_id: int):
-    tournaments = Tournament.load_all_tournaments(guild_id)
+    tournaments = Tournament.load_all_tournaments_with_archived(guild_id)
     # Set the tournament ID
     if tournaments:
         id = max([int(t.id) for t in tournaments]) + 1
@@ -239,7 +239,7 @@ class Delete_Confirmation_View(discord.ui.View):
 
     @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
     async def confirm(self, button: discord.ui.Button,interaction: discord.Interaction):
-        Tournament.delete_tournament(self.tournament.id)
+        Tournament.delete_tournament(interaction.guild.id, self.tournament.id)
 
         # Delete all messages related to the tournament, if they exist
         await delete_all_tournament_messages(interaction, self.tournament)
