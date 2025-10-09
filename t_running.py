@@ -201,6 +201,9 @@ class Start_Match_View(discord.ui.View):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
             return
+        
+        # Update tournament data
+        self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
 
         # Add first reserve in the list to match
         if self.tournament.reserves:

@@ -2,10 +2,9 @@ import json
 import os
 from db import *
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
+'''current_dir = os.path.dirname(os.path.abspath(__file__))
 SERVERS_DIR = os.path.join(current_dir, "servers")
-os.makedirs(SERVERS_DIR, exist_ok=True)
-# json_file_path = os.path.join(current_dir, "tournaments.json")
+os.makedirs(SERVERS_DIR, exist_ok=True)'''
 
 class Tournament:
     def __init__(self, id, name, game, date, time, date_time, prize, notification_intervals=None, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 

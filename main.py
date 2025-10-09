@@ -377,7 +377,7 @@ class HelpView(discord.ui.View):
             inline=False
         )
         self.help_embed.add_field(
-            name="🟢 Start Tournament",
+            name="🟢 START",
             value=(
                 "Close Registration and Start the tournament. This will allow you to set 2 parameters:\n"
                 "- Maximum number of players per game in the first round.\n"
@@ -444,7 +444,7 @@ class HelpView(discord.ui.View):
             inline=False
         )
         self.help_embed.add_field(
-            name="🔄 Restart Tournament",
+            name="🔄 Restart",
             value=(
                 "Resets the tournament and allows you to start over.\n"
                 "*This will keep the registered players and roles, but all other data will be lost, including the tournament channels.*\n"
@@ -453,7 +453,16 @@ class HelpView(discord.ui.View):
             inline=False
         )
         self.help_embed.add_field(
-            name="❌ Delete Tournament",
+            name="🗃 Archive",
+            value=(
+                "Archive the tournament. This will keep all data related to the tournament, but mark it as inactive.\n"
+                "*The specific channels will not be deleted automatically, but everything else will no longer be accessible.*\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="❌ Delete",
             value=(
                 "Delete the tournament. This will delete all data related to the tournament.\n"
                 "*This includes the player registry, roles, channels and messages.*\n"
@@ -539,9 +548,9 @@ class HelpView(discord.ui.View):
             inline=False
         )
         self.help_embed.add_field(
-            name="🏁 Start Match",
+            name="🎖 Set Winner",
             value=(
-                "This will inform players the match has started and open a drop-down menu you can use to select the winner(s).\n"
+                "This will allow Admins to select the winner(s) of the match from a drop-down menu.\n"
                 "**-----**"
             ),
             inline=False
@@ -561,6 +570,15 @@ class HelpView(discord.ui.View):
                 "This will open a drop-down menu with all the players in this match.\n"
                 "You'll need the destination Match ID. It's formatted like this: `R(round number)-G(game number)`.\n"
                 "E.g., `R1-G2` for Game 2 of Round 1.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="❌ Remove Player",
+            value=(
+                "Remove a player from this match.\n"
+                "This will open a drop-down menu with all the players in this match.\n"
                 "**-----**"
             ),
             inline=False
