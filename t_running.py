@@ -6,6 +6,8 @@ from t_utils import check_tournament_admin, send_announcement
 from t_management import create_tournament_embed, update_tournament_embeds
 from t_registration import close_registration
 from tournament import Tournament
+from t_debug import *
+import t_debug
 
 # Lock to prevent different data from being edited at the same time and causing conflict
 tournament_lock = asyncio.Lock() 
@@ -33,9 +35,8 @@ async def run_tournament(t:Tournament, interaction: discord.Interaction):
             await set_brackets(interaction, tournament, details.game_size, details.min_games, get_round_winners(tournament))
     else:
         tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
-        user: discord.Member = discord.utils.get(interaction.guild.members, name=tournament.tournament_winner)
         participant_role = discord.utils.get(interaction.guild.roles, name=f"({tournament.id}) Tournament Participant")
-        await tournament_channel.send(f"# The winner of '{tournament.name}' is {user.mention}! CONGRATULATIONS! :tada::tada:\n"
+        await tournament_channel.send(f"# The winner of '{tournament.name}' is {get_mention_safe(interaction.guild, tournament.tournament_winner)}! CONGRATULATIONS! :tada::tada:\n"
                                       f"Thank you all {participant_role.mention}s for attending and being awesome. See you next time! :fire:")
         await lock_all_threads(interaction, tournament_channel, tournament.round)
 
@@ -139,14 +140,18 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
 
         for _ in range(game):
             # Get user ID and mention in thread
-            user: discord.Member = discord.utils.get(guild.members, name=players[p_index])
+            user = get_user_safe(guild, players[p_index])
             if not user:
-                await interaction.followup.send(f"User '{players[p_index]}' not found in this server.", ephemeral=True)
-                players.remove(players[p_index])  # Remove the player from the list
+                # Remove the player from the list if not in debug mode
+                if t_debug.TOURNAMENT_DEBUG_MODE:
+                    pass # keep dummy players in debug mode
+                else:
+                    await interaction.followup.send(f"User '{players[p_index]}' not found in this server.", ephemeral=True)
+                    players.remove(players[p_index])
                 continue # skip to next player
             
             # Add user to match thread
-            await thread.send(f"{user.mention}")
+            await thread.send(f"{get_mention_safe(guild, players[p_index])}")
 
             match["players"].append(players[p_index])
             p_index += 1
@@ -202,16 +207,31 @@ class Start_Match_View(discord.ui.View):
         if not await check_tournament_admin(interaction, self.tournament):
             return
         
+        # Defer as it could take a while with more players registered
+        await interaction.response.defer()
+
         # Update tournament data
-        self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
+        self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
 
         # Add first reserve in the list to match
         if self.tournament.reserves:
             reserve = self.tournament.reserves[0]
-            await add_player_to_match(interaction=interaction, tournament=self.tournament, match_id=self.match_id, player=reserve)
-            await interaction.response.send_message(f"Reserve '{reserve}' added to match successfully.", ephemeral=True)
+            success = await add_player_to_match(interaction=interaction, t=self.tournament, match_id=self.match_id, player=reserve)
+            if success:
+                if interaction.response.is_done():
+                    await interaction.followup.send(f"Reserve '{reserve}' added to match successfully.", ephemeral=True)
+                else:
+                    await interaction.response.send_message(f"Reserve '{reserve}' added to match successfully.", ephemeral=True)
+            else:
+                if interaction.response.is_done():
+                    await interaction.followup.send(f"Failed to add reserve '{reserve}' to match.", ephemeral=True)
+                else:
+                    await interaction.response.send_message(f"Failed to add reserve '{reserve}' to match.", ephemeral=True)
         else:
-            await interaction.response.send_message("No reserves available to add.", ephemeral=True)
+            if interaction.response.is_done():
+                await interaction.followup.send("No reserves available to add.", ephemeral=True)
+            else:
+                await interaction.response.send_message("No reserves available to add.", ephemeral=True)
 
     @discord.ui.button(label="⏩ Transfer Player", style=discord.ButtonStyle.blurple, custom_id="transfer_player_button")
     async def transfer_player(self, button: discord.ui.Button, interaction: discord.Interaction):
@@ -219,6 +239,9 @@ class Start_Match_View(discord.ui.View):
         if not await check_tournament_admin(interaction, self.tournament):
             return
         
+        # Update tournament data
+        self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
+
         # Ephemeral drop-down menu to select one of the players in the match for a transfer
         transfer_view = Transfer_Player_View(self.tournament, self.match_id)
         await interaction.response.send_message("", view=transfer_view, ephemeral=True)
@@ -328,7 +351,7 @@ class Transfer_Modal(discord.ui.Modal):
         self.add_item(discord.ui.InputText(label=f"Player being transferred", value=player))
         self.add_item(discord.ui.InputText(label=f"Transfer {player} to: ", placeholder="Enter new match id"))
         self.tournament: Tournament = tournament
-        self.players = player
+        self.player = player
         self.old_match_id = old_match_id
 
     async def callback(self, interaction: discord.Interaction):
@@ -379,7 +402,7 @@ class Select_Winner_Menu(discord.ui.Select):
             
             self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
 
-            winners = [discord.utils.get(interaction.guild.members, name=value) for value in self.values]
+            winners = [get_user_safe(interaction.guild, value) for value in self.values]
             mentions = ", ".join(winner.mention for winner in winners)
 
             await interaction.response.send_message(f"## Winners of this match: {mentions}")
@@ -452,7 +475,7 @@ async def not_ready_forfeit(tournament: Tournament, interaction: discord.Interac
     not_ready_players = [player for player in match_players if player not in view.children[0].clicked_users]
 
     # Convert player names to user objects
-    not_ready_players = [discord.utils.get(interaction.guild.members, name=player) for player in not_ready_players]
+    not_ready_players = [get_user_safe(interaction.guild, player) for player in not_ready_players]
 
     # Send message to players who did not click the ready button
     if not_ready_players:
@@ -598,46 +621,53 @@ class Tournament_Running_View(discord.ui.View):
             await interaction.response.send_message("## All winners have been selected. No pending matches found.", ephemeral=True)
 
 # Add a player to a match while the tournament is running
-async def add_player_to_match(interaction, tournament: Tournament, match_id: int, player: str):
+async def add_player_to_match(interaction: discord.Interaction, t: Tournament, match_id: int, player: str):
     # Update tournament data
-    tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
-
-    # Remove from reserve list and add to player list if player is a reserve
-    if player in tournament.reserves:
-        tournament.reserves.pop(tournament.reserves.index(player))
-        tournament.players.append(player)
-        tournament.save()
-        await update_tournament_embeds(tournament, interaction)    
+    tournament = Tournament.load_tournament_by_id(interaction.guild.id, t.id)
 
     # Get player user object
-    user: discord.Member = discord.utils.get(interaction.guild.members, name=player)
+    user = get_user_safe(interaction.guild, player)
+    
+    if not t_debug.TOURNAMENT_DEBUG_MODE and not user:
+        return False
+    
     # Iterate through and find the match
     match = next((m for m in tournament.matches if m["id"] == match_id), None)
     if match:
         if player not in match["players"]:
+            # Remove from reserve list and add to player list if player is a reserve
+            if player in tournament.reserves:
+                tournament.reserves.pop(tournament.reserves.index(player))
+                tournament.players.append(player)
+                await update_tournament_embeds(tournament, interaction)    
             match["players"].append(player)
             tournament.save()
-            await send_message_to_game_thread(interaction, tournament, match_id, f"{user.mention} has been added to this match.")
+            await send_message_to_game_thread(interaction, tournament, match_id, f"{get_mention_safe(interaction.guild, player)} has been added to this match.")
             return True
         else:
-            await send_message_to_game_thread(interaction, tournament, match_id, f"Failed. {user.mention} already in this match.", ephemeral=True)
+            await send_message_to_game_thread(interaction, tournament, match_id, f"Failed. {get_mention_safe(interaction.guild, player)} is already in this match.")
             return False 
     await send_message_to_game_thread(interaction, tournament, match_id, f"Failed. Match not found.", ephemeral=True)
     return False 
 
 # Remove a player from a match while the tournament is running
 async def remove_player_from_match(interaction, tournament: Tournament, match_id: int, player: str):
-    user: discord.Member = discord.utils.get(interaction.guild.members, name=player)
+    # Update tournament data
+    tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
+
+    user = get_user_safe(interaction.guild, player)
     match = next((m for m in tournament.matches if m["id"] == match_id), None)
 
     if match:
         if player in match["players"]:
             match["players"].remove(player)
             tournament.save()
-            await send_message_to_game_thread(interaction, tournament, match_id, f"{user.mention} has been removed from this match.")
+            await send_message_to_game_thread(interaction, tournament, match_id, f"{get_mention_safe(interaction.guild, player)} has been removed from this match.")
+            # Also remove from thread
             thread = discord.utils.get(interaction.guild.threads, id=match["thread_id"])
             if thread:
-                await thread.remove_user(user) # Remove user from thread
+                if not t_debug.is_dummy_player(player):
+                    await thread.remove_user(user)
                 # If match is now empty, lock the thread
                 if not match["players"]:
                     await thread.edit(locked=True, name=f"{thread.name}🔒")
@@ -756,7 +786,7 @@ async def send_round_winners(interaction: discord.Interaction, tournament: Tourn
 
     winners_users = []
     for winner in winners:
-        user: discord.Member = discord.utils.get(interaction.guild.members, name=winner)
+        user = get_user_safe(interaction.guild, winner)
         if not user:
             await interaction.followup.send(f"User '{winner}' not found in this server.", ephemeral=True)
             winners.remove(winner)  # Remove the player from the list
@@ -766,7 +796,7 @@ async def send_round_winners(interaction: discord.Interaction, tournament: Tourn
     # Send the list of winners to the tournament channel
     if winners_users:
         await tournament_channel.send(f"## Congratulations to all **Round {tournament.round} Winners! :fire:**\n"
-                                        f"{', '.join(user.mention for user in winners_users)}")
+                                        f"{', '.join(get_mention_safe(interaction.guild, user.name) for user in winners_users)}")
     else:
         await interaction.followup.send("## No winners found for the previous round.")
 

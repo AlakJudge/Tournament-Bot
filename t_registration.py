@@ -2,6 +2,7 @@ from t_utils import check_tournament_admin, move_reserve_to_player
 from t_management import   update_tournament_embeds, create_tournament_embed
 from tournament import Tournament
 import discord
+import t_debug
 
 class Registration(discord.ui.View):    
     def __init__(self, tournament:Tournament):
@@ -39,8 +40,9 @@ class Registration(discord.ui.View):
             self.tournament.unregister_player(player_name)
             if await move_reserve_to_player(self.tournament):
                 # Send message to tournament channel saying who was promoted from reserve to player
-                promoted_player = discord.utils.get(interaction.guild.members, name=self.tournament.players[-1])
-                await tournament_channel.send(f"**{promoted_player.mention} has been promoted from reserve to player!**")
+                promoted_player_name = self.tournament.players[-1]
+                mention = t_debug.get_mention_safe(interaction.guild, promoted_player_name)
+                await tournament_channel.send(f"**{mention} has been promoted from reserve to player!**")
         else:
             self.tournament.unregister_reserve(player_name)
 
@@ -149,7 +151,7 @@ async def register_player_to_tournament(tournament, player, interaction=None):
         return
 
     # Assign the participant role to the user
-    if tournament.participants_role:
+    if tournament.participants_role and not t_debug.is_dummy_player(player_name):
         participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.participants_role) 
         await interaction.user.add_roles(participants_role)
 
@@ -165,10 +167,10 @@ async def register_player_to_tournament(tournament, player, interaction=None):
     
     tournament.save() # Save registration to file
     await update_tournament_embeds(tournament, interaction) # Edit the embed with updated number of players
-    
-    await participants_channel.send(f"----------------------------------\n"
-                                    f"{player.mention} registered to '{tournament.name}' successfully.", view=k_view)
 
+    mention = t_debug.get_mention_safe(interaction.guild, player_name)
+    await participants_channel.send(f"----------------------------------\n"
+                                     f"{mention} registered to '{tournament.name}' successfully.", view=k_view)
 
 # Close registration function
 async def close_registration(interaction: discord.Interaction, tournament: Tournament):

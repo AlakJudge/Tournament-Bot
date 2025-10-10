@@ -1,6 +1,5 @@
 import discord
 import os
-import json
 from t_management import Create_Tournament
 from tournament import Tournament
 from t_admin_menu import T_Admin
@@ -8,6 +7,7 @@ from t_persistant_views import restore_all_views
 from t_running import Start_Match_View
 from t_registration import register_player_to_tournament
 from t_utils import *
+import t_debug
 
 if os.getenv("GITHUB_ACTIONS") != "true":
     from dotenv import load_dotenv
@@ -636,6 +636,39 @@ async def on_guild_join(guild: discord.Guild):
     await guild.create_role(name="BGTB Organizer", permissions=discord.Permissions(use_application_commands=True))
     print(f"Created role 'BGTB Organizer' in the '{guild.name}' server.")
 
+@bot.slash_command(name="debug_mode", description="Toggle debug mode for testing", guild_ids=[1286841607576092763]) 
+async def debug_mode(ctx: discord.ApplicationContext, enabled: bool):
+    if not ctx.user.guild_permissions.administrator:
+        await ctx.respond("Only administrators can toggle debug mode.", ephemeral=True)
+        return
+    
+    t_debug.set_debug_mode(enabled)
+    status = "enabled" if enabled else "disabled"
+    await ctx.respond(f"Debug mode {status}.", ephemeral=True)
+
+@bot.slash_command(name="add_dummies", description="Add dummy players to tournament (Debug mode only)", guild_ids=[1286841607576092763])
+async def add_dummies(ctx: discord.ApplicationContext, tournament_id: int, count: int = 50):
+    if not t_debug.TOURNAMENT_DEBUG_MODE:
+        await ctx.respond("Debug mode not enabled.", ephemeral=True)
+        return
+    
+    tournament = Tournament.load_tournament_by_id(ctx.guild.id, tournament_id)
+    if not tournament:
+        await ctx.respond("Tournament not found.", ephemeral=True)
+        return
+    
+    success, message = await t_debug.add_dummy_players(tournament, count)
+    await ctx.respond(message, ephemeral=True)
+
+@bot.slash_command(name="clean_dummies", description="Remove all dummy players (Debug mode only)", guild_ids=[1286841607576092763])
+async def clean_dummies(ctx: discord.ApplicationContext, tournament_id: int):
+    tournament = Tournament.load_tournament_by_id(ctx.guild.id, tournament_id)
+    if not tournament:
+        await ctx.respond("Tournament not found.", ephemeral=True)
+        return
+    
+    removed = await t_debug.clean_dummy_players(tournament)
+    await ctx.respond(f"Removed {removed} dummy players.", ephemeral=True)
 
 
 
