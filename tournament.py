@@ -7,7 +7,7 @@ SERVERS_DIR = os.path.join(current_dir, "servers")
 os.makedirs(SERVERS_DIR, exist_ok=True)'''
 
 class Tournament:
-    def __init__(self, id, name, game, date, time, date_time, prize, notification_intervals=None, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
+    def __init__(self, id, name, game, date, time, date_time, prize, image=None, notification_intervals=None, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
                  reg_channel=None, reg_msg_id=None, admin_msg_channel_id=None, admin_msg_id=None, owner=None, tournament_channel_id=None, tournament_channel_msg_id=None, 
                  participants_channel_id=None, curr_num_matches=None, players=None, reserves=None, tournament_winner=None, matches=None, guild_id=None, archived=False):
         self.id = id
@@ -26,6 +26,7 @@ class Tournament:
         self.time = time
         self.date_time = date_time
         self.prize = prize
+        self.image = image
         self.notification_intervals = notification_intervals or []
         self.player_cap = player_cap
         self.thread_msg = thread_msg
@@ -86,6 +87,10 @@ class Tournament:
     def edit_player_cap(self, new_player_cap):
         self.player_cap = new_player_cap
 
+    # Edit image
+    def edit_image(self, new_image):
+        self.image = new_image
+
     # Edit thread message
     def edit_thread_msg(self, new_thread_msg):
         self.thread_msg = new_thread_msg
@@ -115,7 +120,7 @@ class Tournament:
         self.tournament_winner = ""
 
     # Save the tournament details to the json file
-    def save(self, exclude_archived=False):
+    def save(self):
         tournament_data = self.to_dict()
         update_tournament(self.guild_id, self.id, tournament_data)
     
@@ -155,6 +160,7 @@ class Tournament:
             time=data.get("time"),
             date_time=data.get("date_time"),
             prize=data.get("prize"),
+            image=data.get("image"),
             notification_intervals=data.get("notification_intervals", []),
             player_cap=data.get("player_cap"),
             thread_msg=data.get("thread_msg"),
@@ -189,6 +195,7 @@ class Tournament:
             "time": self.time,
             "date_time": self.date_time,
             "prize": self.prize,
+            "image": self.image,
             "notification_intervals": self.notification_intervals,
             "player_cap": self.player_cap,
             "thread_msg": self.thread_msg,

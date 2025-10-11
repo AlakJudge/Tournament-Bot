@@ -13,10 +13,9 @@ class Create_Tournament(discord.ui.Modal):
         self.player_cap = player_cap
         self.add_item(discord.ui.InputText(label="Tournament Name"))
         self.add_item(discord.ui.InputText(label="Game", placeholder="e.g. Ticket to Ride, Monopoly, Cluedo, etc."))
-        self.add_item(discord.ui.InputText(label="Date", placeholder="Format: DD/MM/YYYY"))
+        self.add_item(discord.ui.InputText(label="Date", placeholder="Format: DD/MM/YYYY or DDMMYYYY"))
         self.add_item(discord.ui.InputText(label="Time", placeholder="Format: HH:MM (e.g. 17:30)"))
-        self.add_item(discord.ui.InputText(label="Prize", placeholder="e.g. Expansion, Free Game, etc."))
-
+        self.add_item(discord.ui.InputText(label="Prize", placeholder="e.g. Expansion, Free Game, etc.", required=False))
     # Getting the data from the player input modal
     async def callback(self, interaction: discord.Interaction):
         name = self.children[0].value
@@ -24,6 +23,10 @@ class Create_Tournament(discord.ui.Modal):
         date = self.children[2].value
         time = self.children[3].value
         prize = self.children[4].value
+
+        # If no prize is entered add "N/A"
+        if prize.strip() == "":
+            prize = "N/A"
         
         # Validate and convert date and time to a Discord timestamp format and save it
         formatted_date_time = await unix_convert_date_time(interaction, date, time)
@@ -69,6 +72,8 @@ def create_tournament_embed(tournament:Tournament):
     embed.add_field(name="Prize", value=tournament.prize, inline=False)
     embed.add_field(name="Players Registered", value=f"{len(tournament.players)}/{tournament.player_cap} + *{len(tournament.reserves)} Reserves*", inline=False)
     embed.add_field(name="Registration Status", value=tournament.reg_status, inline=False)
+    if tournament.image:
+        embed.set_image(url=tournament.image)
     return embed
 
 # Create the new tournament and save to file
@@ -133,6 +138,10 @@ class Edit_Select_Menu(discord.ui.Select):
                 discord.SelectOption(
                     label="Edit Player Cap",
                     description="Edit the maximum number of players allowed in the tournament"
+                ),
+                discord.SelectOption(
+                    label="Edit Image - Remove image by typing 'remove'",
+                    description="Edit the image URL of the tournament embed"
                 )
             ]
         super().__init__(placeholder="Select a field to edit...", min_values=1, max_values=1, options=options)
@@ -151,6 +160,8 @@ class Edit_Select_Menu(discord.ui.Select):
                 modal =  Editing_Modal(self.tournament, "Prize")
             case "Edit Player Cap":
                 modal = Editing_Modal(self.tournament, "Player Cap")
+            case "Edit Image - Remove image by typing 'remove'":
+                modal = Editing_Modal(self.tournament, "Image")
 
         await interaction.response.send_modal(modal)
 
@@ -167,7 +178,8 @@ class Editing_Modal(discord.ui.Modal):
         self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id) 
 
         new_value = self.children[0].value
-        
+        image_removed = False
+
         match self.field:
             case "Name":
                 self.tournament.edit_name(new_value)
@@ -198,15 +210,28 @@ class Editing_Modal(discord.ui.Modal):
                         # Send message to tournament channel saying who was promoted from reserve to player
                         tournament_channel = await interaction.guild.fetch_channel(self.tournament.tournament_channel_id)
                         await tournament_channel.send(f"**{promoted_player.mention} has been promoted from reserve to player!**")
-
-        if not interaction.response.is_done():
-            await interaction.response.send_message(f"{self.field} updated to {new_value}.", ephemeral=True)
-        else:
-            await interaction.followup.send(f"{self.field} updated to {new_value}.", ephemeral=True)
+            case "Image":
+                if new_value.lower() == "remove":
+                    new_value = None
+                    await interaction.response.send_message("Tournament embed image removed.", ephemeral=True)
+                    image_removed = True
+                else:
+                    # URL validation
+                    if not (new_value.startswith("http://") or new_value.startswith("https://")):
+                        await interaction.response.send_message("Invalid URL. Please provide a valid image URL starting with 'http://' or 'https://'", ephemeral=True)
+                        return
+        
+                self.tournament.edit_image(new_value)
+        
+        if not image_removed:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"{self.field} updated to {new_value}.", ephemeral=True)
+            else:
+                await interaction.followup.send(f"{self.field} updated to {new_value}.", ephemeral=True)
         self.tournament.save()
         await update_tournament_embeds(self.tournament, interaction)
 
-# Edit the tournament embeds
+# Update the tournament embeds
 async def update_tournament_embeds(t:Tournament, interaction: discord.Interaction):
     tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, t.id)
     new_embed = create_tournament_embed(tournament)
