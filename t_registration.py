@@ -139,36 +139,34 @@ class kick_view(discord.ui.View):
 # Function to register a player to a tournament
 async def register_player_to_tournament(tournament, player, interaction=None):
     # Get user and participants channel
-    player_name = interaction.user.name
-    player = discord.utils.get(interaction.guild.members, name=player_name) 
     participants_channel = await interaction.guild.fetch_channel(tournament.participants_channel_id)
     # Reload the latest tournament data
     tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
 
     # Get tournament details and check if the user is already registered. Stop duplicate register if so.
-    if player_name in tournament.players or player_name in tournament.reserves:
-        await interaction.response.send_message(f"Registration failed. '{player_name}' is already registered to '{tournament.name}'.", ephemeral=True)
+    if player.name in tournament.players or player.name in tournament.reserves:
+        await interaction.response.send_message(f"Registration failed. '{player.name}' is already registered to '{tournament.name}'.", ephemeral=True)
         return
 
     # Assign the participant role to the user
-    if tournament.participants_role and not t_debug.is_dummy_player(player_name):
+    if tournament.participants_role and not t_debug.is_dummy_player(player.name):
         participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.participants_role) 
         await interaction.user.add_roles(participants_role)
 
-    k_view = kick_view(tournament, player_name) # Set up view for kick button
-    
+    k_view = kick_view(tournament, player.name) # Set up view for kick button
+
     # Add as player if under the player cap limit, otherwise add as reserve
     if len(tournament.players) < tournament.player_cap:
-        tournament.register_player(player_name)
-        await interaction.response.send_message(f"'{player_name}' registered to '{tournament.name}' successfully.", ephemeral=True)
+        tournament.register_player(player.name)
+        await interaction.response.send_message(f"'{player.name}' registered to '{tournament.name}' successfully.", ephemeral=True)
     else:
-        tournament.register_reserve(player_name)    
-        await interaction.response.send_message(f"'{player_name}' registered to '{tournament.name}' as a **RESERVE** successfully.", ephemeral=True)    
+        tournament.register_reserve(player.name)    
+        await interaction.response.send_message(f"'{player.name}' registered to '{tournament.name}' as a **RESERVE** successfully.", ephemeral=True)    
     
     tournament.save() # Save registration to file
     await update_tournament_embeds(tournament, interaction) # Edit the embed with updated number of players
 
-    mention = t_debug.get_mention_safe(interaction.guild, player_name)
+    mention = t_debug.get_mention_safe(interaction.guild, player.name)
     await participants_channel.send(f"----------------------------------\n"
                                      f"{mention} registered to '{tournament.name}' successfully.", view=k_view)
 
