@@ -671,7 +671,6 @@ async def clean_dummies(ctx: discord.ApplicationContext, tournament_id: int):
     await ctx.respond(f"Removed {removed} dummy players.", ephemeral=True)
 
 
-
 def main():
     # Fetch the environment status from the env file. Either "dev" or "live"
     ENVIRONMENT = os.getenv("ENVIRONMENT")  
