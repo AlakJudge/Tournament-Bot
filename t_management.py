@@ -70,7 +70,10 @@ def create_tournament_embed(tournament:Tournament):
     embed.add_field(name="Game", value=tournament.game, inline=False)
     embed.add_field(name="Date & Time (Your Timezone)", value=tournament.date_time, inline=False)
     embed.add_field(name="Prize", value=tournament.prize, inline=False)
-    embed.add_field(name="Players Registered", value=f"{len(tournament.players)}/{tournament.player_cap} + *{len(tournament.reserves)} Reserves*", inline=False)
+    if tournament.get_checkin_status():
+        embed.add_field(name="Players Registered", value=f"{len(tournament.players)}", inline=False)
+    else:
+        embed.add_field(name="Players Registered", value=f"{len(tournament.players)}/{tournament.player_cap} + *{len(tournament.reserves)} Reserves*", inline=False)
     embed.add_field(name="Registration Status", value=tournament.reg_status, inline=False)
     if tournament.image:
         embed.set_image(url=tournament.image)

@@ -1,12 +1,13 @@
 import discord
 from tournament import Tournament
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 import asyncio
 import re
 
 
 # Dictionary to hold scheduled notification tasks
 scheduled_notification_tasks = {}
+scheduled_checkin_tasks = {}
 
 # Check if the user has the admin role or is a server admin
 async def check_tournament_admin(interaction: discord.Interaction, tournament: Tournament):          
@@ -22,14 +23,22 @@ async def check_tournament_admin(interaction: discord.Interaction, tournament: T
     return True
 
 # Function to move the reserve on the first index to the players list and then move all reserves 1 index up.
-async def move_reserve_to_player(tournament: Tournament):
-    if len(tournament.players) < tournament.player_cap and len(tournament.reserves) > 0:
+async def move_reserve_to_player(tournament: Tournament):        
+    if (len(tournament.players) < tournament.player_cap and len(tournament.reserves) > 0) or \
+    tournament.get_checkin_status(): # Only move if there is space or if check-in is enabled
         tournament.register_player(tournament.reserves[0])
         tournament.reserves.pop(0)
         tournament.save()
         return True
     return False
 
+async def move_players_to_reserve(tournament: Tournament):
+    excesse_count = len(tournament.players) - tournament.player_cap
+    if excesse_count > 0:
+        for _ in range(excesse_count):
+            tournament.reserves.append(tournament.players.pop())
+        tournament.save()
+        
 # Convert date and time to a Discord timestamp format and save it
 async def unix_convert_date_time(interaction, date: str, time_str: str) -> str:
     # Validate date (DD/MM/YYYY or DDMMYYYY format)
@@ -139,11 +148,23 @@ async def cancel_scheduled_notifications(guild_id, tournament_id):
         tournament.notification_intervals = []  # Clear the notification intervals from file
         tournament.save() 
 
-async def send_notification(tournament: Tournament, interaction: discord.Interaction, delay: float, interval: int):
+async def send_notification(tournament: Tournament, interaction: discord.Interaction, delay: float, interval: int, type: str = None, duration: str = None):
     await asyncio.sleep(delay)  # Wait for the specified delay
     # Get participants role
     participant_role = discord.utils.get(interaction.guild.roles, name=f"({tournament.id}) Tournament Participant")
-    message = f"## 🚨 REMINDER {participant_role.mention} 🚨: The tournament '{tournament.name}' will begin in {interval}!"
+
+    if type == "checkin_reminder":
+        message = f"## ⏰ CHECK-IN REMINDER {participant_role.mention} - Tournament Check-in will begin {interval} before the tournament starts - In {parse_seconds_to_human_readable(delay)}!"\
+                    "\nPlease check-in using the button that will become available then."
+    elif type == "checkin_start":
+        message = f"## ✅ CHECK-IN {participant_role.mention} - Tournament Check-in is now OPEN!"\
+                    f"\nPlease check-in using the button below. You have **{duration}** to check-in."
+    elif type == "checkin_end":
+        message = f"## ⏳ {participant_role.mention} - Tournament Check-in is now CLOSED! Brackets will be generated shortly."\
+                    f"\nIf you check-in from this moment on, you will be added to the 'Late Check-in' list, and might still be able to participate in the tournament."
+    else:
+        message = f"## 🚨 REMINDER {participant_role.mention} 🚨: The tournament '{tournament.name}' will begin in {interval}!"
+    
     await send_announcement(interaction, tournament, message, "t_channel")
 
 # Function to parse time strings like "30m", "2h", etc.
@@ -193,3 +214,59 @@ class DummyInteraction:
         self.response = DummyInteraction.DummyResponse()
         self.followup = DummyInteraction.DummyFollowup()
         
+async def schedule_checkin(tournament: Tournament, interaction: discord.Interaction, timings: list[int]):
+    # Convert the date_time field (Discord timestamp) to a datetime object
+    start_time = datetime.fromtimestamp(int(tournament.date_time[3:-3]))
+    now = datetime.now()
+    
+    # Check if the tournament has already started
+    if start_time < now:
+        await interaction.response.send_message("The tournament has already started. Cannot schedule Tournament Check-in.", ephemeral=True)
+        return
+
+    reminder = timings[0]
+    start = timings[1]
+    duration = timings[2]
+
+    tasks = []
+
+    # Get reminder time in seconds
+    reminder_notify_time = start_time - timedelta(seconds=reminder)
+    reminder_delay = (reminder_notify_time - now).total_seconds()
+
+    if reminder_delay > 0: # Only send if the time is in the future
+        reminder_label = parse_seconds_to_human_readable(int(reminder))
+        reminder_delay_label = parse_seconds_to_human_readable(int(reminder_delay))
+
+        if interaction.response.is_done():
+            await interaction.followup.send(f"Check-in reminder set to {reminder_label} before the tournament - (In {reminder_delay_label}).", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Check-in reminder set to {reminder_label} before the tournament - (In {reminder_delay_label}).", ephemeral=True)
+
+        task_reminder = asyncio.create_task(send_notification(tournament, interaction, reminder_delay, reminder_label, type=f"checkin_reminder"))
+        tasks.append(task_reminder)
+
+    # Get start checkin time in seconds
+    start_notify_time = start_time - timedelta(seconds=start)
+    start_delay = (start_notify_time - now).total_seconds()
+
+    if start_delay > 0:
+        start_label = parse_seconds_to_human_readable(int(start))
+        start_delay_label = parse_seconds_to_human_readable(int(start_delay))
+        duration_label = parse_seconds_to_human_readable(int(duration))
+
+        if interaction.response.is_done():
+            await interaction.followup.send(f"Check-in start set to {start_label} before the tournament - (In {start_delay_label}). You'll have {duration_label} to check in.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Check-in start set to {start_label} before the tournament - (In {start_delay_label}). You'll have {duration_label} to check in.", ephemeral=True)
+
+        task_start = asyncio.create_task(send_notification(tournament, interaction, start_delay, start_label, type=f"checkin_start", duration=duration_label))
+        tasks.append(task_start)
+
+        task_end = asyncio.create_task(send_notification(tournament, interaction, start_delay + duration, start_label, type=f"checkin_end"))
+        tasks.append(task_end)
+
+    # Store the tasks in the scheduled_checkin_tasks dictionary
+    scheduled_checkin_tasks[tournament.id] = tasks
+
+    tournament.save()

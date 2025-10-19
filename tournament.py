@@ -7,7 +7,7 @@ SERVERS_DIR = os.path.join(current_dir, "servers")
 os.makedirs(SERVERS_DIR, exist_ok=True)'''
 
 class Tournament:
-    def __init__(self, id, name, game, date, time, date_time, prize, image=None, notification_intervals=None, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
+    def __init__(self, id, name, game, date, time, date_time, prize, image=None, notification_intervals=None, checkin=None, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
                  reg_channel=None, reg_msg_id=None, admin_msg_channel_id=None, admin_msg_id=None, owner=None, tournament_channel_id=None, tournament_channel_msg_id=None, 
                  participants_channel_id=None, curr_num_matches=None, players=None, reserves=None, tournament_winner=None, matches=None, guild_id=None, archived=False):
         self.id = id
@@ -28,6 +28,7 @@ class Tournament:
         self.prize = prize
         self.image = image
         self.notification_intervals = notification_intervals or []
+        self.checkin = checkin or {}
         self.player_cap = player_cap
         self.thread_msg = thread_msg
         self.admin_role = admin_role
@@ -107,6 +108,18 @@ class Tournament:
     def set_tournament_winner(self, tournament_winner):
         self.tournament_winner = tournament_winner
 
+    # Set check-in details
+    def set_checkin(self, reminder, start, duration, status=False):
+        self.checkin = {
+            "reminder": reminder,
+            "start": start,
+            "duration": duration,
+            "status": status
+        }
+
+    def get_checkin_status(self):
+        return self.checkin.get("status", False)
+
     # Restart the tournament with basic info and participants
     def restart(self):
         self.reg_msg_id = None
@@ -162,6 +175,7 @@ class Tournament:
             prize=data.get("prize"),
             image=data.get("image"),
             notification_intervals=data.get("notification_intervals", []),
+            checkin=data.get("checkin", {}),
             player_cap=data.get("player_cap"),
             thread_msg=data.get("thread_msg"),
             reg_status=data.get("reg_status", "Closed"),
@@ -197,6 +211,7 @@ class Tournament:
             "prize": self.prize,
             "image": self.image,
             "notification_intervals": self.notification_intervals,
+            "checkin": self.checkin,
             "player_cap": self.player_cap,
             "thread_msg": self.thread_msg,
             "reg_status": self.reg_status,
