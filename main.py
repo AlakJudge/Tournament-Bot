@@ -60,7 +60,13 @@ async def create(
     player_cap = discord.Option(
         int, # Only allows integers
         description="The maximum number of players that can register for the tournament (before reserves are added)"
-        )):
+        ),
+    embed_image = discord.Option(
+        str,
+        description="The URL of the tournament embed image",
+        required=False
+        )
+    ):
     
     # Only allow users with this permission to admin tournaments
     user: discord.Member = ctx.guild.get_member(ctx.user.id)
@@ -83,8 +89,14 @@ async def create(
         await ctx.respond("Failed. The bot does not have permission to set channel permissions. Make sure the bot has the 'View Channel' and 'Manage Channels' permissions", ephemeral=True)
         return
 
+    # Validate the image URL
+    if embed_image:
+        if not await validate_image_url(embed_image):
+            await ctx.respond("Invalid image URL. Please provide a valid image URL starting with 'http://' or 'https://'", ephemeral=True)
+            return
+
     # Display the Modal requesting input from the user
-    modal = Create_Tournament(reg_channel=registration_channel, title="Create Tournament", player_cap=player_cap)
+    modal = Create_Tournament(reg_channel=registration_channel, title="Create Tournament", player_cap=player_cap, image=embed_image)
     await ctx.send_modal(modal)
 
 # Slash command to display a LIST OF ALL ACTIVE TOURNAMENTS
@@ -391,10 +403,34 @@ class HelpView(discord.ui.View):
             inline=False
         )
         self.help_embed.add_field(
+            name="✅ Activate Check-in",
+            value=(
+                "Activate the check-in system for the tournament. This will allow players to check-in before the tournament starts.\n"
+                "Only Checked-in players will be taken into account when setting the brackets when you start the tournament.\n\n"
+                "You will be able to set the following parameters:\n"
+                "- Check-in start time.\n"
+                "   - Set the amount of minutes/hours prior the 'tournament start time' which you'd like the check-in to start.\n"
+                "- Check-in duration.\n"
+                "  - How long players have to check-in.\n"
+                "- Check-in end.\n"
+                "  - Set the amount of minutes/hours prior the 'tournament start time' which you'd like the check-in to end.\n\n"
+                "*Players who fail to check-in will be moved to the reserves list once the check-in ends.*\n\n"
+                "If a player checks in after the Check-in end time, they will be added to a 'late check-in' list, which will have priority when you add a reserve to a match.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
             name="📄 Edit Info",
             value=(
                 "Edit tournament information. This will allow you to modify the following:\n"
-                "Tournament name, Game name, Date, Time, Prize and Player Capacity.\n"
+                "- Tournament name\n"
+                "- Game name\n"
+                "- Date\n"
+                "- Time\n"
+                "- Prize\n"
+                "- Player Capacity\n"
+                "- Tournament embed image\n"
                 "**-----**"
             ),
             inline=False
@@ -558,7 +594,8 @@ class HelpView(discord.ui.View):
         self.help_embed.add_field(
             name="➕ Add Reserve",
             value=(
-                "Add the first player from the reserve pool to this match.\n"
+                "Add the first player from the reserve pool to this match.\n\n"
+                "If Check-in mode is enabled, players in the 'late check-in' list will have priority above other reserves."
                 "**-----**"
             ),
             inline=False
