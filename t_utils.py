@@ -2,6 +2,7 @@ import discord
 from tournament import Tournament
 from datetime import datetime, time, timedelta
 import asyncio
+import aiohttp
 import re
 
 
@@ -32,12 +33,20 @@ async def move_reserve_to_player(tournament: Tournament):
         return True
     return False
 
-async def move_players_to_reserve(tournament: Tournament):
-    excesse_count = len(tournament.players) - tournament.player_cap
-    if excesse_count > 0:
-        for _ in range(excesse_count):
-            tournament.reserves.append(tournament.players.pop())
-        tournament.save()
+async def move_players_to_reserve(tournament: Tournament, type: str = None):
+    if type == "end_of_checkin":
+        players_to_check = tournament.players.copy() # Avoiding iteration issues
+        
+        for player in players_to_check:
+            if player not in tournament.checked_in and player not in tournament.late_checkin:
+                tournament.players.remove(player)
+                tournament.reserves.append(player)
+    else:
+        excess_count = len(tournament.players) - tournament.player_cap
+        if excess_count > 0:
+            for _ in range(excess_count):
+                tournament.reserves.append(tournament.players.pop())
+    tournament.save()
         
 # Convert date and time to a Discord timestamp format and save it
 async def unix_convert_date_time(interaction, date: str, time_str: str) -> str:
@@ -105,14 +114,7 @@ async def schedule_custom_notifications(tournament: Tournament, interaction: dis
         delay = (notify_time - now).total_seconds()
         if delay > 0: # Only schedule if the time is in the future
             # Format a human-readable string for confirmation
-            if interval_seconds >= 86400:
-                label = f"{interval_seconds // 86400} days"
-            elif interval_seconds >= 3600:
-                label = f"{interval_seconds // 3600} hours"
-            elif interval_seconds >= 60:
-                label = f"{interval_seconds // 60} minutes"
-            else:
-                label = f"{interval_seconds} seconds"
+            label = parse_seconds_to_human_readable(interval_seconds)
 
             # Add the interval and label to the list that will be stored in the save file
             intervals_and_labels.append({"seconds": interval_seconds, "label": label})
@@ -121,7 +123,7 @@ async def schedule_custom_notifications(tournament: Tournament, interaction: dis
                 await interaction.followup.send(f"Scheduled notification for {label} before the tournament.", ephemeral=True)
             else:
                 await interaction.response.send_message(f"Scheduled notification for {label} before the tournament.", ephemeral=True)
-            task = asyncio.create_task(send_notification(tournament, interaction, delay, label))
+            task = asyncio.create_task(send_notification(tournament=tournament, interaction=interaction, delay=delay, interval=label))
             tasks.append(task)
         else:
             if interaction.response.is_done(): 
@@ -148,20 +150,21 @@ async def cancel_scheduled_notifications(guild_id, tournament_id):
         tournament.notification_intervals = []  # Clear the notification intervals from file
         tournament.save() 
 
-async def send_notification(tournament: Tournament, interaction: discord.Interaction, delay: float, interval: int, type: str = None, duration: str = None):
+async def send_notification(tournament: Tournament, interaction: discord.Interaction, delay: float, interval: str, message: str = None, view: discord.ui.View = None, type: str = None, duration: str = None):
     await asyncio.sleep(delay)  # Wait for the specified delay
-    # Get participants role
+
     participant_role = discord.utils.get(interaction.guild.roles, name=f"({tournament.id}) Tournament Participant")
 
     if type == "checkin_reminder":
-        message = f"## ⏰ CHECK-IN REMINDER {participant_role.mention} - Tournament Check-in will begin {interval} before the tournament starts - In {parse_seconds_to_human_readable(delay)}!"\
-                    "\nPlease check-in using the button that will become available then."
+        pass
     elif type == "checkin_start":
-        message = f"## ✅ CHECK-IN {participant_role.mention} - Tournament Check-in is now OPEN!"\
-                    f"\nPlease check-in using the button below. You have **{duration}** to check-in."
+        # For check-in start, use the repeating message function
+        duration_seconds = parse_time_string_reverse(duration)  # Convert duration back to seconds
+        await keep_message_at_bottom(tournament, interaction, message, duration_seconds, view, type="checkin_start")
+        return
     elif type == "checkin_end":
-        message = f"## ⏳ {participant_role.mention} - Tournament Check-in is now CLOSED! Brackets will be generated shortly."\
-                    f"\nIf you check-in from this moment on, you will be added to the 'Late Check-in' list, and might still be able to participate in the tournament."
+        tournament.checkin["ended"] = True
+        await move_players_to_reserve(tournament, type="end_of_checkin")
     else:
         message = f"## 🚨 REMINDER {participant_role.mention} 🚨: The tournament '{tournament.name}' will begin in {interval}!"
     
@@ -186,13 +189,40 @@ def parse_time_string(s):
 
 def parse_seconds_to_human_readable(seconds: int) -> str:
     if seconds >= 86400:
-        return f"{seconds // 86400} days"
+        return f"{seconds // 86400} day(s)"
     elif seconds >= 3600:
-        return f"{seconds // 3600} hours"
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        if minutes > 0:
+            return f"{hours} hour(s) and {minutes} minute(s)"
+        return f"{hours} hour(s)"        
     elif seconds >= 60:
-        return f"{seconds // 60} minutes"
+        minutes = seconds // 60
+        seconds = seconds % 60
+        if seconds > 0:
+            return f"{minutes} minute(s) and {seconds} second(s)"
+        return f"{minutes} minute(s)"
     else:
         return f"{seconds} seconds"
+    
+def parse_time_string_reverse(duration_str: str) -> int:
+    """Convert human readable time to seconds"""
+    # Extract number from strings like "30 minutes", "2 hours", etc.
+    import re
+    match = re.search(r'(\d+)\s*(second|minute|hour|day)', duration_str)
+    if match:
+        value = int(match.group(1))
+        unit = match.group(2)
+        
+        if unit.startswith('second'):
+            return value
+        elif unit.startswith('minute'):
+            return value * 60
+        elif unit.startswith('hour'):
+            return value * 3600
+        elif unit.startswith('day'):
+            return value * 86400
+    return 0
 
 class DummyInteraction:
     class DummyResponse:
@@ -214,59 +244,56 @@ class DummyInteraction:
         self.response = DummyInteraction.DummyResponse()
         self.followup = DummyInteraction.DummyFollowup()
         
-async def schedule_checkin(tournament: Tournament, interaction: discord.Interaction, timings: list[int]):
-    # Convert the date_time field (Discord timestamp) to a datetime object
-    start_time = datetime.fromtimestamp(int(tournament.date_time[3:-3]))
-    now = datetime.now()
-    
-    # Check if the tournament has already started
-    if start_time < now:
-        await interaction.response.send_message("The tournament has already started. Cannot schedule Tournament Check-in.", ephemeral=True)
+async def keep_message_at_bottom(tournament: Tournament, interaction: discord.Interaction, message: str, duration_seconds: int, view=None, type: str = None):
+    """Send a message that gets deleted and resent every 30 seconds to keep it at the bottom"""
+    tournament_channel = interaction.guild.get_channel(tournament.tournament_channel_id)
+    if not tournament_channel:
         return
+    
+    remaining_time = duration_seconds
+    
+    # Send initial message
+    current_message = await tournament_channel.send(message, view=view)
 
-    reminder = timings[0]
-    start = timings[1]
-    duration = timings[2]
+    # Calculate how many 30-second intervals we need
+    intervals = duration_seconds // 30
 
-    tasks = []
+    for _ in range(intervals):
+        await asyncio.sleep(30)  # Wait 30 seconds
+        remaining_time -= 30
+        
+        try:
+            if remaining_time > 0:
+                await current_message.delete()
+        except discord.NotFound:
+            pass  
+        except discord.Forbidden:
+            pass 
+        
+        # Update message with remaining time if needed
+        if remaining_time > 0 and type == "checkin_start":
+            # Update the duration in the message
+            updated_message = f"## ✅ Tournament Check-in is now OPEN!\n"\
+                f"Please check-in using the button below. You have **{parse_seconds_to_human_readable(remaining_time)}** to check-in."
+            current_message = await tournament_channel.send(updated_message, view=view)
 
-    # Get reminder time in seconds
-    reminder_notify_time = start_time - timedelta(seconds=reminder)
-    reminder_delay = (reminder_notify_time - now).total_seconds()
 
-    if reminder_delay > 0: # Only send if the time is in the future
-        reminder_label = parse_seconds_to_human_readable(int(reminder))
-        reminder_delay_label = parse_seconds_to_human_readable(int(reminder_delay))
-
-        if interaction.response.is_done():
-            await interaction.followup.send(f"Check-in reminder set to {reminder_label} before the tournament - (In {reminder_delay_label}).", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"Check-in reminder set to {reminder_label} before the tournament - (In {reminder_delay_label}).", ephemeral=True)
-
-        task_reminder = asyncio.create_task(send_notification(tournament, interaction, reminder_delay, reminder_label, type=f"checkin_reminder"))
-        tasks.append(task_reminder)
-
-    # Get start checkin time in seconds
-    start_notify_time = start_time - timedelta(seconds=start)
-    start_delay = (start_notify_time - now).total_seconds()
-
-    if start_delay > 0:
-        start_label = parse_seconds_to_human_readable(int(start))
-        start_delay_label = parse_seconds_to_human_readable(int(start_delay))
-        duration_label = parse_seconds_to_human_readable(int(duration))
-
-        if interaction.response.is_done():
-            await interaction.followup.send(f"Check-in start set to {start_label} before the tournament - (In {start_delay_label}). You'll have {duration_label} to check in.", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"Check-in start set to {start_label} before the tournament - (In {start_delay_label}). You'll have {duration_label} to check in.", ephemeral=True)
-
-        task_start = asyncio.create_task(send_notification(tournament, interaction, start_delay, start_label, type=f"checkin_start", duration=duration_label))
-        tasks.append(task_start)
-
-        task_end = asyncio.create_task(send_notification(tournament, interaction, start_delay + duration, start_label, type=f"checkin_end"))
-        tasks.append(task_end)
-
-    # Store the tasks in the scheduled_checkin_tasks dictionary
-    scheduled_checkin_tasks[tournament.id] = tasks
-
-    tournament.save()
+async def validate_image_url(url: str) -> bool:
+    """Check if URL is accessible and points to an image"""
+    try:
+        # Basic format check first
+        if not (url.startswith("http://") or url.startswith("https://")):
+            return False
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.head(url, timeout=5) as response:
+                # Check if URL is accessible
+                if response.status != 200:
+                    return False
+                
+                # Check if content type is an image
+                content_type = response.headers.get('content-type', '').lower()
+                return content_type.startswith('image/')
+                
+    except (aiohttp.ClientError, asyncio.TimeoutError):
+        return False
