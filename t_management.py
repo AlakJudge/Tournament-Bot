@@ -1,5 +1,5 @@
 from tournament import Tournament
-from t_utils import move_reserve_to_player, unix_convert_date_time
+from t_utils import move_reserve_to_player, unix_convert_date_time, validate_image_url
 import discord
 
 ###############################
@@ -7,10 +7,11 @@ import discord
 ###############################
 
 class Create_Tournament(discord.ui.Modal):
-    def __init__(self, reg_channel: discord.TextChannel, title: str, player_cap: int) -> None:
+    def __init__(self, reg_channel: discord.TextChannel, title: str, player_cap: int, image: str = None) -> None:
         super().__init__(title=title)
         self.reg_channel = reg_channel.id # Saving the ID of the channel picked for registration
         self.player_cap = player_cap
+        self.image = image
         self.add_item(discord.ui.InputText(label="Tournament Name"))
         self.add_item(discord.ui.InputText(label="Game", placeholder="e.g. Ticket to Ride, Monopoly, Cluedo, etc."))
         self.add_item(discord.ui.InputText(label="Date", placeholder="Format: DD/MM/YYYY or DDMMYYYY"))
@@ -27,7 +28,7 @@ class Create_Tournament(discord.ui.Modal):
         # If no prize is entered add "N/A"
         if prize.strip() == "":
             prize = "N/A"
-        
+
         # Validate and convert date and time to a Discord timestamp format and save it
         formatted_date_time = await unix_convert_date_time(interaction, date, time)
         if not formatted_date_time:
@@ -42,7 +43,8 @@ class Create_Tournament(discord.ui.Modal):
             date_time=formatted_date_time,
             prize=prize, 
             player_cap=self.player_cap,
-            guild_id=interaction.guild.id
+            guild_id=interaction.guild.id,
+            image=self.image
         )
         tournament_creation_embed = create_tournament_embed(tournament) # Create the embed with the tournament details
 
@@ -70,17 +72,20 @@ def create_tournament_embed(tournament:Tournament):
     embed.add_field(name="Game", value=tournament.game, inline=False)
     embed.add_field(name="Date & Time (Your Timezone)", value=tournament.date_time, inline=False)
     embed.add_field(name="Prize", value=tournament.prize, inline=False)
-    if tournament.get_checkin_status():
+    
+    # Show different player registration info if check-in is active and ended
+    if tournament.get_checkin_status() and tournament.checkin["ended"] == False:
         embed.add_field(name="Players Registered", value=f"{len(tournament.players)}", inline=False)
     else:
         embed.add_field(name="Players Registered", value=f"{len(tournament.players)}/{tournament.player_cap} + *{len(tournament.reserves)} Reserves*", inline=False)
     embed.add_field(name="Registration Status", value=tournament.reg_status, inline=False)
+    
     if tournament.image:
         embed.set_image(url=tournament.image)
     return embed
 
 # Create the new tournament and save to file
-def create_tournament(name, reg_channel, game, date, time, date_time, prize, player_cap: int, guild_id: int):
+def create_tournament(name, reg_channel, game, date, time, date_time, prize, player_cap: int, guild_id: int, image: str = None):
     tournaments = Tournament.load_all_tournaments_with_archived(guild_id)
     # Set the tournament ID
     if tournaments:
@@ -98,7 +103,8 @@ def create_tournament(name, reg_channel, game, date, time, date_time, prize, pla
         date_time=date_time,
         prize=prize,
         player_cap=player_cap,
-        guild_id=guild_id
+        guild_id=guild_id,
+        image=image
         )
 
     return tournament
@@ -220,7 +226,7 @@ class Editing_Modal(discord.ui.Modal):
                     image_removed = True
                 else:
                     # URL validation
-                    if not (new_value.startswith("http://") or new_value.startswith("https://")):
+                    if not await validate_image_url(new_value):
                         await interaction.response.send_message("Invalid URL. Please provide a valid image URL starting with 'http://' or 'https://'", ephemeral=True)
                         return
         
