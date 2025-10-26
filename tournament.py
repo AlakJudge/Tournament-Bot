@@ -9,7 +9,7 @@ os.makedirs(SERVERS_DIR, exist_ok=True)'''
 class Tournament:
     def __init__(self, id, name, game, date, time, date_time, prize, image=None, notification_intervals=None, checkin=None, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
                  reg_channel=None, reg_msg_id=None, admin_msg_channel_id=None, admin_msg_id=None, owner=None, tournament_channel_id=None, tournament_channel_msg_id=None, 
-                 participants_channel_id=None, curr_num_matches=None, players=None, reserves=None, tournament_winner=None, matches=None, guild_id=None, archived=False):
+                 participants_channel_id=None, curr_num_matches=None, players=None, checked_in=None, late_checkin=None, reserves=None, tournament_winner=None, matches=None, guild_id=None, archived=False):
         self.id = id
         self.reg_channel = reg_channel
         self.reg_msg_id = reg_msg_id
@@ -36,6 +36,8 @@ class Tournament:
         self.participants_role = participants_role
         self.round = round
         self.players = players or []
+        self.checked_in = checked_in or []
+        self.late_checkin = late_checkin or []
         self.reserves = reserves or []
         self.matches = matches or []
         self.tournament_winner = tournament_winner or ""
@@ -59,6 +61,18 @@ class Tournament:
     def unregister_reserve(self, player):     
         if player in self.reserves:
             self.reserves.remove(player)
+    
+    def checkin_player(self, player):
+        self.checked_in.append(player)
+
+    def late_checkin_player(self, player):
+        self.late_checkin.append(player)
+
+    def checkout_player(self, player):
+        if player in self.checked_in:
+            self.checked_in.remove(player)
+        elif player in self.late_checkin:
+            self.late_checkin.remove(player)
 
     # Edit tournament name
     def edit_name(self, new_name):
@@ -109,12 +123,13 @@ class Tournament:
         self.tournament_winner = tournament_winner
 
     # Set check-in details
-    def set_checkin(self, reminder, start, duration, status=False):
+    def set_checkin(self, reminder, start, duration, status=False, ended=False):
         self.checkin = {
             "reminder": reminder,
             "start": start,
             "duration": duration,
-            "status": status
+            "status": status,
+            "ended": ended
         }
 
     def get_checkin_status(self):
@@ -128,6 +143,9 @@ class Tournament:
         self.participants_channel_id = None
         self.curr_num_matches = 0
         self.thread_msg = None
+        self.checkin = {}
+        self.checked_in = []
+        self.late_checkin = []
         self.round = 0
         self.matches = []
         self.tournament_winner = ""
@@ -192,6 +210,8 @@ class Tournament:
             participants_channel_id=data.get("participants_channel_id"),
             curr_num_matches=data.get("curr_num_matches"),
             players=data.get("players", []),
+            checked_in=data.get("checked_in", []),
+            late_checkin=data.get("late_checkin", []),
             reserves=data.get("reserves", []),
             tournament_winner=data.get("tournament_winner", ""),
             matches=data.get("matches", []),
@@ -228,6 +248,8 @@ class Tournament:
             "participants_channel_id": self.participants_channel_id,
             "curr_num_matches": self.curr_num_matches,
             "players": self.players,
+            "checked_in": self.checked_in,
+            "late_checkin": self.late_checkin,
             "reserves": self.reserves,
             "tournament_winner": self.tournament_winner,
             "matches": self.matches,
