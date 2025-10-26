@@ -5,6 +5,7 @@ from t_management import *
 from t_registration import Reg_Msg_Modal
 from t_utils import *
 from t_running import run_tournament
+from t_checkin import *
 import discord
 
 class T_Admin(discord.ui.View):
@@ -127,8 +128,11 @@ class T_Admin(discord.ui.View):
             checkin_modal = CheckinModal(self.tournament)
             await interaction.response.send_modal(checkin_modal)
             await checkin_modal.wait()
-            button.label = "⛔ Deactivate Check-in"
-            button.style = discord.ButtonStyle.red
+           
+            self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
+            if self.tournament.get_checkin_status():  # Only update button if check-in was actually activated
+                button.label = "⛔ Deactivate Check-in"
+                button.style = discord.ButtonStyle.red
         else:
             if await deactivate_checkin(self.tournament, interaction):
                 button.label = "✅ Activate Check-in"
@@ -466,7 +470,8 @@ class CheckinModal(discord.ui.Modal):
                 await interaction.response.send_message(f"Invalid time format: {value}", ephemeral=True)
                 return False
             values_in_seconds.append(seconds)
-        print("Reminder: ", values_in_seconds[0], " Start: ", values_in_seconds[1], " Duration: ", values_in_seconds[2])
+        
+        # Check that reminder is before checkin start
         if values_in_seconds[0] <= values_in_seconds[1]:
             await interaction.response.send_message(f"'Check-in reminder' must be set to a time before 'Check-in begin'.", ephemeral=True)
             return False
@@ -475,21 +480,28 @@ class CheckinModal(discord.ui.Modal):
         import re
         t_start_time_timestamp = re.search(r'<t:(\d+):', self.tournament.date_time)
         t_start_time = int(t_start_time_timestamp.group(1))
+        # Get the time now in seconds
+        now = int(datetime.now().timestamp())
+
+        # Check that reminder is before tournament start
+        if (t_start_time - values_in_seconds[0] < now):
+            await interaction.response.send_message(f"'Check-in reminder' must be set to a time between now and the tournament start time.", ephemeral=True)
+            return False
 
         # Calculate when check-in would end
         checkin_end = t_start_time - values_in_seconds[1] + values_in_seconds[2]
-        print("Check-in end time (timestamp): ", checkin_end, " Tournament start time (timestamp): ", t_start_time)
         if checkin_end > t_start_time:
             await interaction.response.send_message(f"Check-in end time exceeds the tournament start time.", ephemeral=True)
             return False
-    
+        
         await activate_checkin(self.tournament, interaction, values_in_seconds)
         return True
 
 async def activate_checkin(tournament: Tournament, interaction: discord.Interaction, times_in_seconds):
-    tournament.set_checkin(times_in_seconds[0], times_in_seconds[1], times_in_seconds[2], status=True)
+    tournament.set_checkin(times_in_seconds[0], times_in_seconds[1], times_in_seconds[2], status=True, ended=False)
+    reserves_copy = tournament.reserves.copy()
     # Move all reserves to players
-    for _ in tournament.reserves:
+    for _ in reserves_copy:
         await move_reserve_to_player(tournament)
     tournament.reserves = []
     tournament.save()
@@ -498,8 +510,12 @@ async def activate_checkin(tournament: Tournament, interaction: discord.Interact
     await interaction.followup.send(f"Check-in system has been activated!")
 
 async def deactivate_checkin(tournament: Tournament, interaction: discord.Interaction):
+    reserves_copy = tournament.reserves.copy()
+    for _ in reserves_copy: # Move all reserves to players
+        await move_reserve_to_player(tournament)
+    await move_players_to_reserve(tournament) # Move excess players back to reserve
     tournament.set_checkin(0, 0, 0, status=False)
-    await move_players_to_reserve(tournament)
+    await cancel_scheduled_checkin(tournament.id)
     tournament.save()
     await update_tournament_embeds(tournament, interaction)
     await interaction.response.send_message(f"Check-in system has been deactivated.")
