@@ -20,6 +20,11 @@ tournament_lock = asyncio.Lock()
 async def run_tournament(t:Tournament, interaction: discord.Interaction):
     tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, t.id)
 
+    # Check if there are any registered players
+    if not len(tournament.players) > 0:
+        await interaction.response.send_message("Cannot start the tournament as there are no registered players.", ephemeral=True)
+        return
+
     # Only collect details for next round if there's no final winner yet
     if not tournament.tournament_winner: 
         details = set_details(tournament)
@@ -215,7 +220,10 @@ class Start_Match_View(discord.ui.View):
 
         # Add first reserve in the list to match
         if self.tournament.reserves:
-            reserve = self.tournament.reserves[0]
+            if len(self.tournament.late_checkin) > 0:
+                reserve = self.tournament.late_checkin[0]
+            else:
+                reserve = self.tournament.reserves[0]
             success = await add_player_to_match(interaction=interaction, t=self.tournament, match_id=self.match_id, player=reserve)
             if success:
                 if interaction.response.is_done():
@@ -635,6 +643,10 @@ async def add_player_to_match(interaction: discord.Interaction, t: Tournament, m
     match = next((m for m in tournament.matches if m["id"] == match_id), None)
     if match:
         if player not in match["players"]:
+            # Handle late check-in players
+            if player in tournament.late_checkin:
+                tournament.late_checkin.remove(player)
+                tournament.checked_in.append(player)
             # Remove from reserve list and add to player list if player is a reserve
             if player in tournament.reserves:
                 tournament.reserves.pop(tournament.reserves.index(player))
