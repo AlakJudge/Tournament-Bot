@@ -155,8 +155,11 @@ async def register_player_to_tournament(tournament, player, interaction=None):
 
     k_view = kick_view(tournament, player.name) # Set up view for kick button
 
-    # Add as player if under the player cap limit, otherwise add as reserve
-    if len(tournament.players) < tournament.player_cap:
+    # Get checkin status
+    checkin_status = tournament.get_checkin_status()
+
+    # Add as player if under the player cap limit or if it's checkin mode, otherwise add as reserve
+    if len(tournament.players) < tournament.player_cap or checkin_status:
         tournament.register_player(player.name)
         await interaction.response.send_message(f"'{player.name}' registered to '{tournament.name}' successfully.", ephemeral=True)
     else:
