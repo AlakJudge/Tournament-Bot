@@ -308,7 +308,7 @@ class Archive_Confirmation_View(discord.ui.View):
         Tournament.archive_tournament(interaction.guild.id, self.tournament.id)
 
         # Delete all messages related to the tournament, if they exist
-        await delete_all_tournament_messages(interaction, self.tournament)
+        await delete_all_tournament_messages(interaction, self.tournament, archive=True)
 
         # Delete yes/no buttons view
         await self.message.delete()
@@ -336,8 +336,8 @@ async def delete_tournament_roles(interaction: discord.Interaction, tournament: 
  
 
 # Delete all messages related to the tournament, if they exist
-async def delete_all_tournament_messages(interaction: discord.Interaction, tournament: Tournament):
-    if tournament.reg_msg_id:
+async def delete_all_tournament_messages(interaction: discord.Interaction, tournament: Tournament, archive: bool = False):
+    if tournament.reg_msg_id and not archive:
         reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
         try:
             reg_msg = await reg_channel.fetch_message(tournament.reg_msg_id)
