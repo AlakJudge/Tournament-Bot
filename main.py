@@ -675,9 +675,12 @@ async def on_guild_join(guild: discord.Guild):
 
 @bot.slash_command(name="debug_mode", description="Toggle debug mode for testing", guild_ids=[1286841607576092763]) 
 async def debug_mode(ctx: discord.ApplicationContext, enabled: bool):
-    if not ctx.user.guild_permissions.administrator:
-        await ctx.respond("Only administrators can toggle debug mode.", ephemeral=True)
-        return
+    # Only allow users with this permission to admin tournaments
+    user: discord.Member = ctx.guild.get_member(ctx.user.id)
+    admin_role: discord.Role = discord.utils.get(ctx.guild.roles, name="BGTB Organizer")
+    if admin_role not in user.roles and not user.guild_permissions.administrator:
+        await ctx.respond("Failed. Only Tournament Admins have permission to perform this action.", ephemeral=True)
+        return   
     
     t_debug.set_debug_mode(enabled)
     status = "enabled" if enabled else "disabled"
