@@ -378,7 +378,7 @@ async def restart_tournament(tournament:Tournament, interaction: discord.Interac
         
     # Deactive check-in button if it is active
     if tournament.get_checkin_status():
-        await T_Admin.check_in(T_Admin, button=None, interaction=interaction, tournament=tournament)
+        await T_Admin.check_in(interaction=interaction)
 
     # Delete all messages and channels related to the tournament, if they exist.
     # Except the admin message and reg channel ID
