@@ -168,6 +168,7 @@ async def send_notification(tournament: Tournament, interaction: discord.Interac
     elif type == "checkin_end":
         tournament.checkin["ended"] = True
         tournament.save()
+        print(f"notification print: {tournament.checkin}")
         await move_players_to_reserve(tournament, type="end_of_checkin")
     else:
         message = f"## 🚨 REMINDER {participant_role.mention} 🚨: The tournament '{tournament.name}' will begin in {interval}!"

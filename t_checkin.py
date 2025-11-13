@@ -141,6 +141,7 @@ class Checkin_View(discord.ui.View):
             await interaction.response.send_message("You have already checked in for this tournament.", ephemeral=True)
             return
 
+        print(f"button print: {tournament.checkin}")
         # Mark the user as checked in
         if tournament.checkin["ended"]:
             tournament.late_checkin_player(interaction.user.name)
