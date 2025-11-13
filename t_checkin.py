@@ -171,6 +171,7 @@ async def check_in_user(interaction: discord.Interaction, tournament: Tournament
         await interaction.response.send_message("You have already checked in for this tournament.", ephemeral=True)
         return False
     # Set the user as checked in
+    print(f"tournament.checkin['ended']: {tournament.checkin['ended']}")
     if tournament.checkin["ended"]:
         tournament.late_checkin_player(player)
         await interaction.response.send_message("Check-in period has ended. You will be added to the 'Late Check-in' list.", ephemeral=True)
