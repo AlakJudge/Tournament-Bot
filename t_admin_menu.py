@@ -384,6 +384,9 @@ async def restart_tournament(tournament:Tournament, interaction: discord.Interac
                 if await deactivate_checkin(tournament, interaction):
                     item.label = "✅ Activate Check-in"
                     item.style = discord.ButtonStyle.green
+                    
+                    embed = T_Admin.get_embed(t_admin_instance)        
+                    await interaction.message.edit(embed=embed, view=t_admin_instance)
 
     # Delete all messages and channels related to the tournament, if they exist.
     # Except the admin message and reg channel ID
