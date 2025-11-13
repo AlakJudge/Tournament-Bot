@@ -382,11 +382,17 @@ async def restart_tournament(tournament:Tournament, interaction: discord.Interac
         except discord.NotFound:
             pass
     if tournament.tournament_channel_id:
-        tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
-        await tournament_channel.delete()
+        try:
+            tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
+            await tournament_channel.delete()
+        except discord.NotFound:
+            pass
     if tournament.participants_channel_id:
-        participants_channel = await interaction.guild.fetch_channel(tournament.participants_channel_id)
-        await participants_channel.delete()
+        try:
+            participants_channel = await interaction.guild.fetch_channel(tournament.participants_channel_id)
+            await participants_channel.delete()
+        except discord.NotFound:
+            pass
 
     # Reset tournament data
     tournament.restart()

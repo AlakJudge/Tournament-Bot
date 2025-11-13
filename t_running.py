@@ -659,7 +659,7 @@ async def add_player_to_match(interaction: discord.Interaction, t: Tournament, m
         else:
             await send_message_to_game_thread(interaction, tournament, match_id, f"Failed. {get_mention_safe(interaction.guild, player)} is already in this match.")
             return False 
-    await send_message_to_game_thread(interaction, tournament, match_id, f"Failed. Match not found.", ephemeral=True)
+    await send_message_to_game_thread(interaction, tournament, match_id, f"Failed. Match not found.")
     return False 
 
 # Remove a player from a match while the tournament is running
