@@ -126,12 +126,8 @@ class Checkin_View(discord.ui.View):
 
     @discord.ui.button(label="Check-in", style=discord.ButtonStyle.green)
     async def checkin(self, button: discord.ui.Button,interaction: discord.Interaction):
-        player = interaction.user.name
 
-        # Update tournament data
-        tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
-
-        await check_in_user(interaction, tournament)
+        await check_in_user(interaction, self.tournament)
 
     @discord.ui.button(label="Check-out", style=discord.ButtonStyle.red)
     async def checkout(self, button: discord.ui.Button,interaction: discord.Interaction):

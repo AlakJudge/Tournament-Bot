@@ -157,6 +157,9 @@ async def send_notification(tournament: Tournament, interaction: discord.Interac
     await asyncio.sleep(delay)  # Wait for the specified delay
 
     participant_role = discord.utils.get(interaction.guild.roles, name=f"({tournament.id}) Tournament Participant")
+    
+    # Update tournament data
+    tournament = Tournament.load_tournament_by_id(tournament.guild_id, tournament.id)
 
     if type == "checkin_reminder":
         pass
