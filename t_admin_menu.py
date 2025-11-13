@@ -378,12 +378,20 @@ async def restart_tournament(tournament:Tournament, interaction: discord.Interac
         
     # Deactive check-in button if it is active
     if tournament.get_checkin_status():
-        t_admin_instance = T_Admin(tournament)
-        
-        if hasattr(t_admin_instance, 'check_in'):
-           button_obj = getattr(t_admin_instance, 'check_in')
-           callback = button_obj.callback
-           await callback(interaction=interaction)
+        # Get admin msg
+        admin_msg_channel = tournament.admin_msg_channel_id
+        admin_msg = tournament.admin_msg_id
+        admin_channel = await interaction.guild.fetch_channel(admin_msg_channel)
+        try:
+            message = await admin_channel.fetch_message(admin_msg)
+            admin_view: T_Admin = message.view
+            for item in admin_view.children:
+                if isinstance(item, discord.ui.Button) and item.custom_id == "checkin_button":
+                    item.label = "✅ Activate Check-in"
+                    item.style = discord.ButtonStyle.green
+            await message.edit(view=admin_view)
+        except discord.NotFound:
+            pass
 
     # Delete all messages and channels related to the tournament, if they exist.
     # Except the admin message and reg channel ID
