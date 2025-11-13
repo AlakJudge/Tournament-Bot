@@ -35,6 +35,9 @@ async def move_reserve_to_player(tournament: Tournament):
 
 async def move_players_to_reserve(tournament: Tournament, type: str = None):
     if type == "end_of_checkin":
+        # Update tournament data
+        tournament = Tournament.load_tournament_by_id(tournament.guild_id, tournament.id)
+        
         players_to_check = tournament.players.copy() # Avoiding iteration issues
         
         for player in players_to_check:
