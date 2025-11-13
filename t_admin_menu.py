@@ -384,12 +384,14 @@ async def restart_tournament(tournament:Tournament, interaction: discord.Interac
         admin_channel = await interaction.guild.fetch_channel(admin_msg_channel)
         try:
             message = await admin_channel.fetch_message(admin_msg)
-            admin_view: T_Admin = message.view
-            for item in admin_view.children:
+            embed = message.embeds[0]
+            view = T_Admin(tournament)
+            
+            for item in view.children:
                 if isinstance(item, discord.ui.Button) and item.custom_id == "checkin_button":
                     item.label = "✅ Activate Check-in"
                     item.style = discord.ButtonStyle.green
-            await message.edit(view=admin_view)
+            await message.edit(view=view, embed=embed)
         except discord.NotFound:
             pass
 
