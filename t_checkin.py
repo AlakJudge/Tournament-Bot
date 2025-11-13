@@ -131,25 +131,7 @@ class Checkin_View(discord.ui.View):
         # Update tournament data
         tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
 
-       # Check if the player is registered in the tournament
-        if player not in tournament.players and player not in tournament.reserves:
-            await interaction.response.send_message("You are not registered for this tournament.", ephemeral=True)
-            return
-        
-        # Check if the player has already checked in
-        if player in tournament.checked_in and player not in tournament.late_checkin:
-            await interaction.response.send_message("You have already checked in for this tournament.", ephemeral=True)
-            return
-
-        print(f"button print: {tournament.checkin}")
-        # Mark the user as checked in
-        if tournament.checkin["ended"]:
-            tournament.late_checkin_player(interaction.user.name)
-            await interaction.response.send_message("Check-in period has ended. You will be added to the 'Late Check-in' list.", ephemeral=True)
-        else:
-            tournament.checkin_player(interaction.user.name)
-            await interaction.response.send_message("You have successfully checked in for this tournament.", ephemeral=True)
-        tournament.save()
+        await check_in_user(interaction, tournament)
 
     @discord.ui.button(label="Check-out", style=discord.ButtonStyle.red)
     async def checkout(self, button: discord.ui.Button,interaction: discord.Interaction):
@@ -172,3 +154,29 @@ class Checkin_View(discord.ui.View):
         tournament.checkout_player(interaction.user.name)
         tournament.save()
         await interaction.response.send_message("You have successfully checked out of this tournament.", ephemeral=True)
+
+
+async def check_in_user(interaction: discord.Interaction, tournament: Tournament):
+    player = interaction.user.name
+    
+    # Update tournament data
+    tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
+    
+    # Check if the player is registered in the tournament
+    if player not in tournament.players and player not in tournament.reserves:
+        await interaction.response.send_message("You are not registered for this tournament.", ephemeral=True)
+        return False
+    # Check if the player has already checked in
+    if player in tournament.checked_in or player in tournament.late_checkin:
+        await interaction.response.send_message("You have already checked in for this tournament.", ephemeral=True)
+        return False
+    # Set the user as checked in
+    if tournament.checkin["ended"]:
+        tournament.late_checkin_player(player)
+        await interaction.response.send_message("Check-in period has ended. You will be added to the 'Late Check-in' list.", ephemeral=True)
+    else:
+        tournament.checkin_player(player)
+        await interaction.response.send_message("You have successfully checked in for this tournament.", ephemeral=True)
+    
+    tournament.save()
+    return True
