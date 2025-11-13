@@ -260,6 +260,9 @@ class Start_Match_View(discord.ui.View):
         if not await check_tournament_admin(interaction, self.tournament):
             return
         
+        # Update tournament data
+        self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
+        
         # Ephemeral drop-down menu to select one of the players in the match to remove
         remove_view = Remove_Player_View(self.tournament, self.match_id)
         await interaction.response.send_message("", view=remove_view, ephemeral=True)
