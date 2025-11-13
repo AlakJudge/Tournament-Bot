@@ -75,8 +75,12 @@ class T_Admin(discord.ui.View):
                 return
             
             # Fetch message and embed if it already exists
-            reg_msg = await reg_channel.fetch_message(self.tournament.reg_msg_id)
-            reg_embed = reg_msg.embeds[0]
+            try:
+                reg_msg = await reg_channel.fetch_message(self.tournament.reg_msg_id)
+                reg_embed = reg_msg.embeds[0]
+            except discord.NotFound:
+                await interaction.response.send_message("Registration message not found.", ephemeral=True)
+                return
 
             # Re-enable buttons
             for item in registration_view.children:
