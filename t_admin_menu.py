@@ -535,5 +535,8 @@ async def deactivate_checkin(tournament: Tournament, interaction: discord.Intera
     await cancel_scheduled_checkin(tournament.id)
     tournament.save()
     await update_tournament_embeds(tournament, interaction)
-    await interaction.response.send_message(f"Check-in system has been deactivated.")
+    if interaction.response.is_done():
+        await interaction.followup.send(f"Check-in system has been deactivated.")
+    else:
+        await interaction.response.send_message(f"Check-in system has been deactivated.")
     return True
