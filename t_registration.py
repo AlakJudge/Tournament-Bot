@@ -81,13 +81,9 @@ class Reg_Msg_Modal(discord.ui.Modal):
         embed = create_tournament_embed(self.tournament)        
         
         if self.type == "edit":
-            print("edit reg msg")
-            print(self.tournament.reg_msg_id)
             # Fetch registration message and edit it 
             old_msg_id = self.tournament.reg_msg_id
-            print(old_msg_id)
             message = await reg_channel.fetch_message(old_msg_id)
-            print(message)
             
             await message.edit(content=msg_content, view=registration_view, embed=embed)
             await reg_channel.send(f"Registration message for '{self.tournament.name}' updated successfully.", delete_after=2)
