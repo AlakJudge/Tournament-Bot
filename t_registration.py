@@ -84,8 +84,10 @@ class Reg_Msg_Modal(discord.ui.Modal):
             # Fetch registration message and edit it 
             old_msg_id = self.tournament.reg_msg_id
             message = await reg_channel.fetch_message(old_msg_id)
+            print(message)
+            print("edit reg msg")
             await message.edit(content=msg_content, view=registration_view, embed=embed)
-            await reg_channel.send(f"Registration message for '{self.tournament.name}' updated successfully.", ephemeral=True)
+            await reg_channel.send(f"Registration message for '{self.tournament.name}' updated successfully.", delete_after=2)
         else:
             # Send a new message
             msg = await reg_channel.send(content=msg_content, embed=embed, view=registration_view)
@@ -183,12 +185,11 @@ async def close_registration(interaction: discord.Interaction, tournament: Tourn
             await interaction.response.send_message("Registration message not found.", ephemeral=True)
     else:
         reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
-        print("here")
         try:
             reg_msg = await reg_channel.fetch_message(tournament.reg_msg_id)
             reg_embed = reg_msg.embeds[0]
             registration_view = Registration(tournament)
-            
+            print("close reg")
             # Disable all buttons in the view
             for item in registration_view.children:
                 if isinstance(item, discord.ui.Button):
