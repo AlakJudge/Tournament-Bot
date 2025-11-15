@@ -82,6 +82,7 @@ class Reg_Msg_Modal(discord.ui.Modal):
         
         if self.type == "edit":
             print("edit reg msg")
+            print(self.tournament.reg_msg_id)
             # Fetch registration message and edit it 
             old_msg_id = self.tournament.reg_msg_id
             print(old_msg_id)
