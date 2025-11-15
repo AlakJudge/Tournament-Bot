@@ -85,14 +85,14 @@ class Reg_Msg_Modal(discord.ui.Modal):
             old_msg_id = self.tournament.reg_msg_id
             message = await reg_channel.fetch_message(old_msg_id)
             await message.edit(content=msg_content, view=registration_view, embed=embed)
-            await interaction.response.send_message(f"Registration message for '{self.tournament.name}' updated successfully.", ephemeral=True)
+            await reg_channel.send(f"Registration message for '{self.tournament.name}' updated successfully.", ephemeral=True)
         else:
             # Send a new message
             msg = await reg_channel.send(content=msg_content, embed=embed, view=registration_view)
             self.tournament.reg_msg_id = msg.id
             self.tournament.save()
 
-            await interaction.response.send_message(f"Registration opened for '{self.tournament.name}'!", ephemeral=True)
+            await interaction.response.send_message(f"Registration opened for '{self.tournament.name}'!", delete_after=2)
 
 # Logic for Kick button
 class kick_view(discord.ui.View):
@@ -183,6 +183,7 @@ async def close_registration(interaction: discord.Interaction, tournament: Tourn
             await interaction.response.send_message("Registration message not found.", ephemeral=True)
     else:
         reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
+        print("here")
         try:
             reg_msg = await reg_channel.fetch_message(tournament.reg_msg_id)
             reg_embed = reg_msg.embeds[0]
