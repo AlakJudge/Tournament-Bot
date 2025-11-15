@@ -84,6 +84,7 @@ class Reg_Msg_Modal(discord.ui.Modal):
             print("edit reg msg")
             # Fetch registration message and edit it 
             old_msg_id = self.tournament.reg_msg_id
+            print(old_msg_id)
             message = await reg_channel.fetch_message(old_msg_id)
             print(message)
             
