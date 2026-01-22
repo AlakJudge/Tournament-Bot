@@ -211,9 +211,9 @@ def parse_seconds_to_human_readable(seconds: int) -> str:
         return f"{minutes} minute(s)"
     else:
         return f"{seconds} seconds"
-    
+
+# Convert human readable time to seconds
 def parse_time_string_reverse(duration_str: str) -> int:
-    """Convert human readable time to seconds"""
     # Extract number from strings like "30 minutes", "2 hours", etc.
     import re
     match = re.search(r'(\d+)\s*(second|minute|hour|day)', duration_str)
@@ -250,9 +250,9 @@ class DummyInteraction:
         self.guild = guild
         self.response = DummyInteraction.DummyResponse()
         self.followup = DummyInteraction.DummyFollowup()
-        
+
+# Send a message that gets deleted and resent every 30 seconds to keep it at the bottom
 async def keep_message_at_bottom(tournament: Tournament, interaction: discord.Interaction, message: str, duration_seconds: int, view=None, type: str = None):
-    """Send a message that gets deleted and resent every 30 seconds to keep it at the bottom"""
     tournament_channel = interaction.guild.get_channel(tournament.tournament_channel_id)
     if not tournament_channel:
         return
@@ -284,9 +284,8 @@ async def keep_message_at_bottom(tournament: Tournament, interaction: discord.In
                 f"Please check-in using the button below. You have **{parse_seconds_to_human_readable(remaining_time)}** to check-in."
             current_message = await tournament_channel.send(updated_message, view=view)
 
-
+# Check if URL is accessible and points to an image
 async def validate_image_url(url: str) -> bool:
-    """Check if URL is accessible and points to an image"""
     try:
         # Basic format check first
         if not (url.startswith("http://") or url.startswith("https://")):
