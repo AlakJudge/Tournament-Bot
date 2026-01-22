@@ -36,16 +36,13 @@ class DummyUser:
 # Tournament debug mode flag
 TOURNAMENT_DEBUG_MODE = False
 
+# Enable/disable debug mode globally
 def set_debug_mode(enabled: bool):
-    """Enable/disable debug mode globally"""
     global TOURNAMENT_DEBUG_MODE
     TOURNAMENT_DEBUG_MODE = enabled
 
+# Get Discord user object or dummy user based on debug mode
 def get_user_safe(guild, player_name):
-    """
-    Get Discord user object or dummy user based on debug mode
-    Returns: discord.Member or DummyUser or None
-    """
     if TOURNAMENT_DEBUG_MODE:
         # In debug mode, check if it's a dummy player (starts with "dummy_")
         if player_name.startswith("dummy_"):
@@ -59,21 +56,15 @@ def get_user_safe(guild, player_name):
     else:
         return None
 
+# Get user mention or fallback string
 def get_mention_safe(guild, player_name):
-    """
-    Get user mention or fallback string
-    Returns: str (either mention or just the name)
-    """
     user = get_user_safe(guild, player_name)
     if user and hasattr(user, 'mention'):
         return user.mention
     return f"**{player_name}**"  # Fallback to bold name
 
+# Get mentions for multiple players
 def get_mentions_safe(guild, player_names):
-    """
-    Get mentions for multiple players
-    Returns: str (comma-separated mentions or names)
-    """
     mentions = [get_mention_safe(guild, name) for name in player_names]
     return ", ".join(mentions)
 
@@ -99,20 +90,20 @@ async def add_dummy_players(tournament: Tournament, count: int):
     tournament.save()
     return True, f"Added {added} dummy players"
 
+# Check if a player name is a dummy player
 def is_dummy_player(player_name: str) -> bool:
-    """Check if a player name is a dummy player"""
-    return player_name.startswith("dummy_") or TOURNAMENT_DEBUG_MODE
+    return player_name.startswith("dummy_")
 
+# Validate that a player is a real Discord user (not dummy)
 def validate_real_user(guild, player_name: str) -> bool:
-    """Validate that a player is a real Discord user (not dummy)"""
     if TOURNAMENT_DEBUG_MODE and is_dummy_player(player_name):
         return True  # Allow dummy players in debug mode
     
     user = discord.utils.get(guild.members, name=player_name)
     return user is not None
 
+# Remove all dummy players from tournament
 async def clean_dummy_players(tournament: Tournament):
-    """Remove all dummy players from tournament"""
     original_players = len(tournament.players)
     original_reserves = len(tournament.reserves)
     
