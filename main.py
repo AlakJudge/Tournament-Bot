@@ -227,14 +227,13 @@ async def reload_tournament_menu(ctx: discord.ApplicationContext, tournament_id:
         return
 
     # Only allow command to be run in tournament chat
-    if not ctx.channel.id != tournament.tournament_channel_id:
+    if ctx.channel.id != tournament.tournament_channel_id:
         await ctx.respond("This command can only be used in the tournament channel.", ephemeral=True)
         return
 
     # Reload the admin menu
     view = Tournament_Running_View(tournament)
-    embed = view.get_embed()
-    await ctx.respond("", view=view, embed=embed)
+    await ctx.respond("## Tournament Admin Menu", view=view)
 
 # Register a player to a tournament manually
 @bot.slash_command(name="register_player", description="Register a player to a tournament manually")
