@@ -631,6 +631,19 @@ class Tournament_Running_View(discord.ui.View):
         else:
             await interaction.response.send_message("## All winners have been selected. No pending matches found.", ephemeral=True)
 
+    @discord.ui.button(label="Checked-in Players List", style=discord.ButtonStyle.blurple, custom_id="checked_in_players_button")
+    async def checked_in_players(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Update tournament data
+        tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
+
+        # Create a list of checked-in players
+        checked_in_list = "\n".join(tournament.checked_in)
+        # Send the list of checked-in players to the tournament channel
+        if checked_in_list:
+            await interaction.response.send_message(f"## ✅Checked-in Players:\n{checked_in_list}", ephemeral=True)
+        else:
+            await interaction.response.send_message("## No players have checked in yet.", ephemeral=True)
+
 # Add a player to a match while the tournament is running
 async def add_player_to_match(interaction: discord.Interaction, t: Tournament, match_id: int, player: str):
     # Update tournament data
