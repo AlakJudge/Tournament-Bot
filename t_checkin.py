@@ -84,43 +84,9 @@ async def cancel_scheduled_checkin(tournament_id):
         task.cancel()
     scheduled_checkin_tasks[tournament_id] = []
 
-async def keep_message_at_bottom(tournament: Tournament, interaction: discord.Interaction, message: str, duration_seconds: int):
-    """Send a message that gets deleted and resent every 30 seconds to keep it at the bottom"""
-    tournament_channel = interaction.guild.get_channel(tournament.tournament_channel_id)
-    if not tournament_channel:
-        return
-    
-    remaining_time = duration_seconds
-    
-    # Send initial message
-    view = Checkin_View(message, tournament)
-    current_message = await tournament_channel.send(message, view=view)
-
-    # Calculate how many 30-second intervals we need
-    intervals = duration_seconds // 30
-
-    for _ in range(intervals):
-        await asyncio.sleep(30)  # Wait 30 seconds
-        remaining_time -= 30
-        
-        try:
-            if remaining_time > 0:
-                await current_message.delete()
-        except discord.NotFound:
-            pass  
-        except discord.Forbidden:
-            pass 
-        
-        # Update message with remaining time if needed
-        if remaining_time > 0:
-            # Update the duration in the message
-            updated_message = f"## ✅ Tournament Check-in is now OPEN!\n"\
-                f"Please check-in using the button below. You have **{parse_seconds_to_human_readable(remaining_time)}** to check-in."
-            current_message = await tournament_channel.send(updated_message, view=view)
-
 class Checkin_View(discord.ui.View):
     def __init__(self, message, tournament:Tournament):
-        super().__init__()
+        super().__init__(timeout=None)
         self.message = message
         self.tournament = tournament
 
