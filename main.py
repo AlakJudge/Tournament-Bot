@@ -4,7 +4,7 @@ from t_management import Create_Tournament
 from tournament import Tournament
 from t_admin_menu import T_Admin
 from t_persistant_views import restore_all_views
-from t_running import Start_Match_View
+from t_running import Start_Match_View, Tournament_Running_View
 from t_registration import register_player_to_tournament
 from t_utils import *
 import t_debug
@@ -209,6 +209,32 @@ async def reload_thread_buttons(ctx: discord.ApplicationContext):
     # Reload the initial thread admin buttons
     view = Start_Match_View(match_id, tournament)
     await ctx.respond(content="## 🛠 Match Admin Buttons", view=view)
+
+@bot.slash_command(name="reload_tournament_menu", description="Reload the tournament admin menu")
+async def reload_tournament_menu(ctx: discord.ApplicationContext, tournament_id: int):
+    # Get tournament
+    tournaments = Tournament.load_all_tournaments(ctx.guild.id)
+    tournament: Tournament = next((t for t in tournaments if t.id == int(tournament_id)), None)
+    if not tournament:
+        await ctx.respond("Tournament not found.", ephemeral=True)
+        return
+    
+    # Only allow users with this permission to admin tournaments
+    user: discord.Member = ctx.guild.get_member(ctx.user.id)
+    admin_role: discord.Role = discord.utils.get(ctx.guild.roles, name=tournament.admin_role)
+    if admin_role not in user.roles and not user.guild_permissions.administrator:
+        await ctx.respond(f"Failed. You must have the '{tournament.admin_role}' role to perform this action.", ephemeral=True)
+        return
+
+    # Only allow command to be run in tournament chat
+    if not ctx.channel.id != tournament.tournament_channel_id:
+        await ctx.respond("This command can only be used in the tournament channel.", ephemeral=True)
+        return
+
+    # Reload the admin menu
+    view = Tournament_Running_View(tournament)
+    embed = view.get_embed()
+    await ctx.respond("", view=view, embed=embed)
 
 # Register a player to a tournament manually
 @bot.slash_command(name="register_player", description="Register a player to a tournament manually")
