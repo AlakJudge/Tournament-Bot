@@ -172,6 +172,19 @@ class T_Admin(discord.ui.View):
         
         await show_registered_users(self.tournament, interaction)
 
+    @discord.ui.button(label="📜 Checked-in Players List", style=discord.ButtonStyle.blurple, custom_id="checked_in_players_button")
+    async def checked_in_players(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Update tournament data
+        tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
+
+        # Create a list of checked-in players
+        checked_in_list = "\n".join(tournament.checked_in)
+        # Send the list of checked-in players to the tournament channel
+        if checked_in_list:
+            await interaction.response.send_message(f"## ✅Checked-in Players:\n{checked_in_list}", ephemeral=True)
+        else:
+            await interaction.response.send_message("## No players have checked in yet.", ephemeral=True)
+
     # Schedule Notifications button
     @discord.ui.button(label="⏰ Notifications", style = discord.ButtonStyle.blurple, custom_id="schedule_notifications_button")
     async def schedule_notifications(self, button: discord.ui.Button, interaction: discord.Interaction):
