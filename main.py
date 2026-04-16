@@ -124,19 +124,19 @@ async def admin(
     tournament: Tournament = next((t for t in tournaments if t.id == int(id)), None) # Go through all tournaments and find the id entered.
 
     if not tournament:
-        await ctx.respond("Tournament not found.", ephemeral=True)
+        await ctx.followup.send("Tournament not found.", ephemeral=True)
         return
     
     # Only allow users with this permission to admin tournaments
     user: discord.Member = ctx.guild.get_member(ctx.user.id)
     admin_role: discord.Role = discord.utils.get(ctx.guild.roles, name=tournament.admin_role)
     if admin_role not in user.roles and not user.guild_permissions.administrator:
-        await ctx.respond("Failed. Only Tournament Admins have permission to perform this action.", ephemeral=True)
+        await ctx.followup.send("Failed. Only Tournament Admins have permission to perform this action.", ephemeral=True)
         return   
         
     view = T_Admin(tournament)
     embed = view.get_embed()
-    await ctx.respond("", view=view, embed=embed)
+    await ctx.followup.send("", view=view, embed=embed)
 
     admin_msg = await ctx.interaction.original_response()  
     tournament.admin_msg_id = admin_msg.id

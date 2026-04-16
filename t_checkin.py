@@ -13,7 +13,7 @@ async def schedule_checkin(tournament: Tournament, interaction: discord.Interact
     
     # Check if the tournament has already started
     if start_time < now:
-        await interaction.response.send_message("The tournament has already started. Cannot schedule Tournament Check-in.", ephemeral=True)
+        await interaction.followup.send("The tournament has already started. Cannot schedule Tournament Check-in.", ephemeral=True)
         return
 
     reminder = timings[0]
@@ -37,7 +37,7 @@ async def schedule_checkin(tournament: Tournament, interaction: discord.Interact
         if interaction.response.is_done():
             await interaction.followup.send(f"Check-in reminder set to {reminder_label} before the tournament - In {reminder_delay_label}.", ephemeral=True)
         else:
-            await interaction.response.send_message(f"Check-in reminder set to {reminder_label} before the tournament - In {reminder_delay_label}.", ephemeral=True)
+            await interaction.followup.send(f"Check-in reminder set to {reminder_label} before the tournament - In {reminder_delay_label}.", ephemeral=True)
 
 
         message = f"## ⏰ CHECK-IN REMINDER {participant_role.mention} - Tournament Check-in will begin {reminder_label} before the tournament starts - In {parse_seconds_to_human_readable(int(reminder_to_start_delay))}!"\

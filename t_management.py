@@ -255,7 +255,7 @@ async def update_tournament_embeds(t:Tournament, interaction: discord.Interactio
             if interaction.response.is_done():
                 await interaction.followup.send("Registration message not found.", ephemeral=True)
             else:
-                await interaction.response.send_message("Registration message not found.", ephemeral=True)            
+                await interaction.followup.send("Registration message not found.", ephemeral=True)            
 
     # Edit the tournament embed in the tournament lounge channel
     tournaments_lounge = discord.utils.get(interaction.guild.text_channels, name="🏆tournaments-lounge")
