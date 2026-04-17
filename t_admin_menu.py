@@ -181,7 +181,7 @@ class T_Admin(discord.ui.View):
         checked_in_list = "\n".join(tournament.checked_in)
         # Send the list of checked-in players to the tournament channel
         if checked_in_list:
-            await interaction.response.send_message(f"## ✅Checked-in Players:\n{checked_in_list}", ephemeral=True)
+            await interaction.response.send_message(f"## ✅Checked-in Players ({len(tournament.checked_in)}):\n{checked_in_list}", ephemeral=True)
         else:
             await interaction.response.send_message("## No players have checked in yet.", ephemeral=True)
 
@@ -535,6 +535,7 @@ class CheckinModal(discord.ui.Modal):
         if checkin_end > t_start_time:
             await interaction.response.send_message(f"Check-in end time exceeds the tournament start time.", ephemeral=True)
         
+        await interaction.response.defer(ephemeral=True)
         await activate_checkin(self.tournament, interaction, values_in_seconds)
         return True
 
