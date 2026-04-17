@@ -164,26 +164,18 @@ class T_Admin(discord.ui.View):
         modal = Thread_Msg_Modal(self.tournament)
         await interaction.response.send_modal(modal)
 
-    # Show list of registered users
-    @discord.ui.button(label="👥 Player List", style = discord.ButtonStyle.blurple, custom_id="player_list_button")
-    async def show_reg(self, button: discord.ui.Button, interaction: discord.Interaction):
+    
+    # Button to dropdown with players, checked in players, and late check in players lists
+    @discord.ui.button(label="👥 Players Info", style = discord.ButtonStyle.blurple, custom_id="players_info_button")
+    async def players_info_button(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
         
-        await show_registered_users(self.tournament, interaction)
-
-    @discord.ui.button(label="📜 Checked-in Players List", style=discord.ButtonStyle.blurple, custom_id="checked_in_players_button")
-    async def checked_in_players(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Update tournament data
-        tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
+        self.tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
 
-        # Create a list of checked-in players
-        checked_in_list = "\n".join(tournament.checked_in)
-        # Send the list of checked-in players to the tournament channel
-        if checked_in_list:
-            await interaction.response.send_message(f"## ✅Checked-in Players ({len(tournament.checked_in)}):\n{checked_in_list}", ephemeral=True)
-        else:
-            await interaction.response.send_message("## No players have checked in yet.", ephemeral=True)
+        view = Players_Info_View(self.tournament)
+        await interaction.response.send_message("Select the list you want to see:", view=view, ephemeral=True)
 
     # Schedule Notifications button
     @discord.ui.button(label="⏰ Notifications", style = discord.ButtonStyle.blurple, custom_id="schedule_notifications_button")
@@ -354,11 +346,44 @@ async def show_registered_users(t: Tournament, interaction: discord.Interaction)
 
     if not players_list:
         players_list = "*No players registered yet.*"
-        return
-    await interaction.response.send_message(f"**Registered Players**\n"
+    if not reserves_list:
+        reserves_list = "*No reserves registered yet.*"
+    await interaction.response.send_message(f"### Registered Players ({len(players)}):\n"
                                             f"{players_list}\n"
-                                            f"\n**Registered Reserves**\n"
+                                            f"\n### Registered Reserves ({len(reserves)}):\n"
                                             f"{reserves_list}", ephemeral=True)
+
+class Players_Info_View(discord.ui.View):
+    def __init__(self, tournament: Tournament):
+        super().__init__(timeout=None)
+        self.tournament = tournament
+    
+    @discord.ui.select(placeholder="Click to select an option", custom_id="players_info_select", options=[
+        discord.SelectOption(label="Registered (and reserves)", value="registered"),
+        discord.SelectOption(label="Check-ins", value="checked_in"),
+        discord.SelectOption(label="Late Check-ins", value="late_checkin")
+    ])
+    async def players_info(self, select: discord.ui.Select, interaction: discord.Interaction):
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+        
+        # Update tournament data
+        self.tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
+
+        if select.values[0] == "registered":
+            await show_registered_users(self.tournament, interaction)
+        elif select.values[0] == "checked_in":
+            checked_in_list = "\n".join(self.tournament.checked_in)
+            if checked_in_list:
+                await interaction.response.send_message(f"### ✅Checked-in Players ({len(self.tournament.checked_in)}):\n{checked_in_list}", ephemeral=True)
+            else:
+                await interaction.response.send_message("### No players have checked in yet.", ephemeral=True)
+        elif select.values[0] == "late_checkin":
+            late_checkin_list = "\n".join(self.tournament.late_checkin)
+            if late_checkin_list:
+                await interaction.response.send_message(f"### ⏰Late Check-in Players ({len(self.tournament.late_checkin)}):\n{late_checkin_list}", ephemeral=True)
+            else:
+                await interaction.response.send_message("### No players have done a late check-in.", ephemeral=True)
 
 class Restart_Confirmation_View(discord.ui.View):
     def __init__(self, message, tournament:Tournament):
