@@ -166,6 +166,10 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
 
         # Fetch admin role to mention
         admin_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.admin_role)    
+        if not admin_role:
+            # Create role and give to tournament owner
+            admin_role = await interaction.guild.create_role(name=tournament.admin_role)
+            await interaction.guild.get_member(tournament.owner).add_roles(admin_role)
         
         if not tournament.thread_msg:
             await thread.send("### Hello participants! Please, be respectful and follow the tournament rules!")
