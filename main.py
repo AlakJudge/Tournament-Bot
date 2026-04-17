@@ -118,7 +118,8 @@ async def admin(
     ctx: discord.ApplicationContext, 
     id = discord.Option(description="Find this ID number by using the tournaments_list command")
     ):
-    await ctx.defer() 
+    await ctx.defer()
+
     # Find the tournament
     tournaments = Tournament.load_all_tournaments(ctx.guild.id)
     tournament: Tournament = next((t for t in tournaments if t.id == int(id)), None) # Go through all tournaments and find the id entered.
@@ -132,13 +133,13 @@ async def admin(
     admin_role: discord.Role = discord.utils.get(ctx.guild.roles, name=tournament.admin_role)
     if admin_role not in user.roles and not user.guild_permissions.administrator:
         await ctx.followup.send("Failed. Only Tournament Admins have permission to perform this action.", ephemeral=True)
-        return   
+        return
         
     view = T_Admin(tournament)
     embed = view.get_embed()
     await ctx.followup.send("", view=view, embed=embed)
 
-    admin_msg = await ctx.interaction.original_response()  
+    admin_msg = await ctx.interaction.original_response()
     tournament.admin_msg_id = admin_msg.id
     tournament.admin_msg_channel_id = admin_msg.channel.id
     tournament.save()
