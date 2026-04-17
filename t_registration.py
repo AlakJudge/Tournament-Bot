@@ -188,7 +188,7 @@ async def close_registration(interaction: discord.Interaction, tournament: Tourn
             reg_msg = await reg_channel.fetch_message(tournament.reg_msg_id)
             reg_embed = reg_msg.embeds[0]
             registration_view = Registration(tournament)
-            print("close reg")
+
             # Disable all buttons in the view
             for item in registration_view.children:
                 if isinstance(item, discord.ui.Button):
