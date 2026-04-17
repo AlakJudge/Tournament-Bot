@@ -40,7 +40,7 @@ async def schedule_checkin(tournament: Tournament, interaction: discord.Interact
             await interaction.followup.send(f"Check-in reminder set to {reminder_label} before the tournament - In {reminder_delay_label}.", ephemeral=True)
 
 
-        message = f"## ⏰ CHECK-IN REMINDER {participant_role.mention} - Tournament Check-in will begin {reminder_label} before the tournament starts - In {parse_seconds_to_human_readable(int(reminder_to_start_delay))}!"\
+        message = f"## ⏰ CHECK-IN REMINDER {participant_role.mention} - Tournament Check-in will begin in {parse_seconds_to_human_readable(int(reminder_to_start_delay))}!"\
                     "\nPlease check-in using the button that will become available at that time."
         
         task_reminder = asyncio.create_task(send_notification(tournament, interaction, reminder_delay, reminder_label, message, type=f"checkin_reminder"))
