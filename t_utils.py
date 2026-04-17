@@ -1,6 +1,7 @@
 import discord
 from tournament import Tournament
 from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 import asyncio
 import aiohttp
 import re
@@ -53,6 +54,8 @@ async def move_players_to_reserve(tournament: Tournament, type: str = None):
         
 # Convert date and time to a Discord timestamp format and save it
 async def unix_convert_date_time(interaction, date: str, time_str: str) -> str:
+    tz = ZoneInfo("Europe/London")
+
     # Validate date (DD/MM/YYYY or DDMMYYYY format)
     try:
         parsed_date = datetime.strptime(date, "%d/%m/%Y")
@@ -70,8 +73,8 @@ async def unix_convert_date_time(interaction, date: str, time_str: str) -> str:
         await interaction.response.send_message("Invalid time format. Please use HH:MM (24-hour format).", ephemeral=True)
         return
 
-    combined_datetime = datetime.combine(parsed_date.date(), parsed_time.time())
-    if combined_datetime <= datetime.now():
+    combined_datetime = datetime.combine(parsed_date.date(), parsed_time.time(), tzinfo=tz)
+    if combined_datetime <= datetime.now(tz):
         await interaction.response.send_message("The date and time must be in the future. Please try again.", ephemeral=True)
         return
     
@@ -96,10 +99,12 @@ async def send_announcement(interaction: discord.Interaction, tournament: Tourna
 async def schedule_custom_notifications(tournament: Tournament, interaction: discord.Interaction, intervals: list[int], startup: bool = False):
     if not startup: # Only clear notifications if this is not the startup process
         await cancel_scheduled_notifications(interaction.guild.id, tournament.id)
+
+    tz = ZoneInfo("Europe/London")
     
     # Convert the date_time field (Discord timestamp) to a datetime object
-    start_time = datetime.fromtimestamp(int(tournament.date_time[3:-3]))
-    now = datetime.now()
+    start_time = datetime.fromtimestamp(int(tournament.date_time[3:-3]), tz)
+    now = datetime.now(tz)
 
     # Check if the tournament has already started
     if start_time < now:

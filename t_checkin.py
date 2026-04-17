@@ -6,10 +6,12 @@ from t_utils import *
 
 async def schedule_checkin(tournament: Tournament, interaction: discord.Interaction, timings: list[int]):
     participant_role = discord.utils.get(interaction.guild.roles, name=f"({tournament.id}) Tournament Participant")
+    
+    tz = ZoneInfo("Europe/London")
 
     # Convert the date_time field (Discord timestamp) to a datetime object
-    start_time = datetime.fromtimestamp(int(tournament.date_time[3:-3]))
-    now = datetime.now()
+    start_time = datetime.fromtimestamp(int(tournament.date_time[3:-3]), tz)
+    now = datetime.now(tz)
     
     # Check if the tournament has already started
     if start_time < now:
@@ -37,8 +39,7 @@ async def schedule_checkin(tournament: Tournament, interaction: discord.Interact
         if interaction.response.is_done():
             await interaction.followup.send(f"Check-in reminder set to {reminder_label} before the tournament - In {reminder_delay_label}.", ephemeral=True)
         else:
-            await interaction.followup.send(f"Check-in reminder set to {reminder_label} before the tournament - In {reminder_delay_label}.", ephemeral=True)
-
+            await interaction.response.send_message(f"Check-in reminder set to {reminder_label} before the tournament - In {reminder_delay_label}.", ephemeral=True)
 
         message = f"## ⏰ CHECK-IN REMINDER {participant_role.mention} - Tournament Check-in will begin in {parse_seconds_to_human_readable(int(reminder_to_start_delay))}!"\
                     "\nPlease check-in using the button that will become available at that time."
@@ -133,7 +134,6 @@ async def check_in_user(interaction: discord.Interaction, tournament: Tournament
         await interaction.response.send_message("You have already checked in for this tournament.", ephemeral=True)
         return False
     # Set the user as checked in
-    print(f"tournament.checkin['ended']: {tournament.checkin['ended']}")
     if tournament.checkin["ended"]:
         tournament.late_checkin_player(player)
         await interaction.response.send_message("Check-in period has ended. You will be added to the 'Late Check-in' list.", ephemeral=True)
