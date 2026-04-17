@@ -57,48 +57,6 @@ def archive_tournament_db(guild_id, tournament_id):
     )
     return result.modified_count > 0
 
-'''
-def import_json_data():
-    """Import existing JSON files into MongoDB"""
-    import glob
-
-    # Find all JSON files in servers directory
-    json_files = glob.glob("servers/*.json")
-
-    if not json_files:
-        print("No JSON files found in servers/ directory")
-        return
-
-    for json_file in json_files:
-        filename = os.path.basename(json_file)  # Get just the filename
-        guild_id = os.path.splitext(filename)[0]  # Remove .json extension
-        
-        print(f"Processing {json_file} for guild {guild_id}")
-        
-        try:
-            # Read JSON data
-            with open(json_file, 'r') as f:
-                tournaments_data = json.load(f)
-
-            print(f"Loaded data: {tournaments_data}")  # Debug line
-            print(f"Data type: {type(tournaments_data)}, Length: {len(tournaments_data) if tournaments_data else 0}")  # Debug line
-    
-            # Get collection for this guild
-            collection = get_tournaments_collection(guild_id)
-            
-            if tournaments_data:  # If file is not empty
-                # Clear existing data (optional - remove if you want to append)
-                collection.delete_many({})
-                
-                # Insert all tournaments
-                result = collection.insert_many(tournaments_data)
-                print(f"Inserted {len(result.inserted_ids)} tournaments for guild {guild_id}")
-            else:
-                print(f"No tournaments found in {json_file}")
-                
-        except Exception as e:
-            print(f"Error processing {json_file}: {e}")
-'''
 def test_connection():
     try:
         print("Collections:", db.list_collection_names())
