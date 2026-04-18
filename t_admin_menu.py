@@ -167,10 +167,7 @@ class T_Admin(discord.ui.View):
     
     # Button to dropdown with players, checked in players, and late check in players lists
     @discord.ui.button(label="👥 Players Info", style = discord.ButtonStyle.blurple, custom_id="players_info_button")
-    async def players_info_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-        if not await check_tournament_admin(interaction, self.tournament):
-            return
-        
+    async def players_info_button(self, button: discord.ui.Button, interaction: discord.Interaction):        
         # Update tournament data
         self.tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
 
