@@ -17,7 +17,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 bot = discord.Bot(intents=intents)
-version = "v2.0"
+version = "v2.1"
 
 @bot.event
 async def on_ready():
