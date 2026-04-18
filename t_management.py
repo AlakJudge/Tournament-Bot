@@ -79,7 +79,10 @@ def create_tournament_embed(tournament:Tournament):
     else:
         embed.add_field(name="Players Registered", value=f"{len(tournament.players)}/{tournament.player_cap} + *{len(tournament.reserves)} Reserves*", inline=False)
     embed.add_field(name="Registration Status", value=tournament.reg_status, inline=False)
-    
+
+    embed.add_field(name="______", value="", inline=False)
+    embed.set_footer(text=f"Tournament ID: {tournament.id}")
+
     if tournament.image:
         embed.set_image(url=tournament.image)
     return embed
