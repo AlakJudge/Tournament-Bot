@@ -224,7 +224,15 @@ class T_Admin(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     # Restart the tournament - Delete everything but the registered players/reserves and base info data
-    @discord.ui.button(label="🔄 Restart", style = discord.ButtonStyle.blurple, custom_id="restart_tournament_button")
+    @discord.ui.button(label="🔂 Restart Games", style = discord.ButtonStyle.blurple, custom_id="restart_games_button")
+    async def restart_games(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+        view = Restart_Confirmation_View(message=interaction.message, tournament = self.tournament, restart_games_only=True)
+        await interaction.response.send_message(f"Are you sure you want to **RESTART** '{self.tournament.name}''s games?", view=view)
+
+    # Restart the tournament - Delete everything but the registered players/reserves and base info data
+    @discord.ui.button(label="🔄 Restart All", style = discord.ButtonStyle.blurple, custom_id="restart_tournament_button")
     async def restart_tournament(self, button: discord.ui.Button, interaction: discord.Interaction):
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -383,16 +391,17 @@ class Players_Info_View(discord.ui.View):
                 await interaction.response.send_message("### No players have done a late check-in.", ephemeral=True)
 
 class Restart_Confirmation_View(discord.ui.View):
-    def __init__(self, message, tournament:Tournament):
+    def __init__(self, message, tournament:Tournament, restart_games_only=False):
         super().__init__()
         self.message = message
         self.tournament = tournament
+        self.restart_games_only = restart_games_only
 
     @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
     async def confirm(self, button: discord.ui.Button,interaction: discord.Interaction):
         # Delete yes/no buttons view
         await self.message.delete()
-        await restart_tournament(self.tournament, interaction)
+        await restart_tournament(self.tournament, interaction, self.restart_games_only)
 
     @discord.ui.button(label="No", style=discord.ButtonStyle.red)
     async def cancel(self, button: discord.ui.Button, interaction: discord.Interaction):
@@ -400,7 +409,7 @@ class Restart_Confirmation_View(discord.ui.View):
         await self.message.delete()
         await interaction.response.send_message("Action cancelled.", ephemeral=True)
 
-async def restart_tournament(tournament:Tournament, interaction: discord.Interaction):
+async def restart_tournament(tournament:Tournament, interaction: discord.Interaction, restart_games_only=False):
     # Update tournament data
     tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
     
@@ -432,28 +441,39 @@ async def restart_tournament(tournament:Tournament, interaction: discord.Interac
 
     # Delete all messages and channels related to the tournament, if they exist.
     # Except the admin message and reg channel ID
-    if tournament.reg_msg_id:
-        reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
-        try:
-            message = await reg_channel.fetch_message(tournament.reg_msg_id)
-            await message.delete()
-        except discord.NotFound:
-            pass
-    if tournament.tournament_channel_id:
-        try:
-            tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
-            await tournament_channel.delete()
-        except discord.NotFound:
-            pass
-    if tournament.participants_channel_id:
-        try:
-            participants_channel = await interaction.guild.fetch_channel(tournament.participants_channel_id)
-            await participants_channel.delete()
-        except discord.NotFound:
-            pass
+    if not restart_games_only:
+        if tournament.reg_msg_id:
+            reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
+            try:
+                message = await reg_channel.fetch_message(tournament.reg_msg_id)
+                await message.delete()
+            except discord.NotFound:
+                pass
+        if tournament.tournament_channel_id:
+            try:
+                tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
+                await tournament_channel.delete()
+            except discord.NotFound:
+                pass
+        if tournament.participants_channel_id:
+            try:
+                participants_channel = await interaction.guild.fetch_channel(tournament.participants_channel_id)
+                await participants_channel.delete()
+            except discord.NotFound:
+                pass
+    else:
+        # Delete all thredas in tournament channel if only restarting games
+        if tournament.tournament_channel_id:
+            try:
+                tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
+                threads = tournament_channel.threads
+                for thread in threads:
+                    await thread.delete()
+            except discord.NotFound:
+                pass
 
     # Reset tournament data
-    tournament.restart()
+    tournament.restart(restart_games_only)
     tournament.save()
 
     if interaction.response.is_done():
