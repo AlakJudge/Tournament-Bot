@@ -9,7 +9,7 @@ os.makedirs(SERVERS_DIR, exist_ok=True)'''
 class Tournament:
     def __init__(self, id, name, game, date, time, date_time, prize, image=None, notification_intervals=None, checkin=None, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
                  reg_channel=None, reg_msg_id=None, admin_msg_channel_id=None, admin_msg_id=None, owner=None, tournament_channel_id=None, tournament_channel_msg_id=None, 
-                 participants_channel_id=None, curr_num_matches=None, players=None, checked_in=None, late_checkin=None, reserves=None, tournament_winner=None, matches=None, guild_id=None, archived=False):
+                 participants_channel_id=None, reserves_thread_id=None, curr_num_matches=None, players=None, checked_in=None, late_checkin=None, reserves=None, tournament_winner=None, matches=None, guild_id=None, archived=False):
         self.id = id
         self.reg_channel = reg_channel
         self.reg_msg_id = reg_msg_id
@@ -19,6 +19,7 @@ class Tournament:
         self.tournament_channel_id = tournament_channel_id
         self.tournament_channel_msg_id = tournament_channel_msg_id
         self.participants_channel_id = participants_channel_id
+        self.reserves_thread_id = reserves_thread_id
         self.curr_num_matches = curr_num_matches
         self.name = name
         self.game = game
@@ -136,16 +137,18 @@ class Tournament:
         return self.checkin.get("status", False)
 
     # Restart the tournament with basic info and participants
-    def restart(self):
-        self.reg_msg_id = None
-        self.tournament_channel_id = None
-        self.tournament_channel_msg_id = None
-        self.participants_channel_id = None
-        self.curr_num_matches = 0
-        self.thread_msg = None
-        self.checkin = {}
-        self.checked_in = []
-        self.late_checkin = []
+    def restart(self, restart_games_only=False):
+        if not restart_games_only:
+            self.reg_msg_id = None
+            self.tournament_channel_id = None
+            self.tournament_channel_msg_id = None
+            self.participants_channel_id = None
+            self.reserves_thread_id = None
+            self.curr_num_matches = 0
+            self.thread_msg = None
+            self.checkin = {}
+            self.checked_in = []
+            self.late_checkin = []
         self.round = 0
         self.matches = []
         self.tournament_winner = ""
@@ -208,6 +211,7 @@ class Tournament:
             tournament_channel_id=data.get("tournament_channel_id"),
             tournament_channel_msg_id=data.get("tournament_channel_msg_id"),
             participants_channel_id=data.get("participants_channel_id"),
+            reserves_thread_id=data.get("reserves_thread_id"),
             curr_num_matches=data.get("curr_num_matches"),
             players=data.get("players", []),
             checked_in=data.get("checked_in", []),
@@ -246,6 +250,7 @@ class Tournament:
             "tournament_channel_id": self.tournament_channel_id,
             "tournament_channel_msg_id": self.tournament_channel_msg_id,
             "participants_channel_id": self.participants_channel_id,
+            "reserves_thread_id": self.reserves_thread_id,
             "curr_num_matches": self.curr_num_matches,
             "players": self.players,
             "checked_in": self.checked_in,
