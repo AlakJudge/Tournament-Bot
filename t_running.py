@@ -107,13 +107,20 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
         embed = create_tournament_embed(tournament)
         tournament_channel_msg = await tournament_channel.send(embeds=[embed], view=running_view)
         await tournament_channel_msg.pin()
-        await tournament_channel.send(f"# '{tournament.name}' is about to start. GOOD LUCK! :fire:")
+        await tournament_channel.send(f"# '{tournament.name}' is ready to start. GOOD LUCK! :fire:")
         # Save id of that embed
         tournament.tournament_channel_msg_id = tournament_channel_msg.id
     else:
         # Close all active threads if it's not Round 1
         await lock_all_threads(interaction, tournament_channel, tournament.round-1)
     
+    # Fetch admin role or create if it doesn't exist
+    admin_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.admin_role)
+    if not admin_role:
+        # Give it to tournament owner
+        admin_role = await interaction.guild.create_role(name=tournament.admin_role)
+        await interaction.guild.get_member(tournament.owner).add_roles(admin_role)
+
     # Distribute players evenly into matches
     for index, game in enumerate(games):
         # Set match id
@@ -163,13 +170,6 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
 
         start_match_view = Start_Match_View(match_id, tournament)
         tournament.matches.append(match)
-
-        # Fetch admin role to mention
-        admin_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.admin_role)    
-        if not admin_role:
-            # Create role and give to tournament owner
-            admin_role = await interaction.guild.create_role(name=tournament.admin_role)
-            await interaction.guild.get_member(tournament.owner).add_roles(admin_role)
         
         if not tournament.thread_msg:
             await thread.send("### Hello participants! Please, be respectful and follow the tournament rules!")
@@ -182,6 +182,28 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
         # Save the message ID of the thread message with the view
         match["thread_msg_id"] = start_match_view.id
     
+    # Create a thread exclusive for late check in and reserves to communicate with admins
+    if tournament.reserves or tournament.late_checkin:
+        reserves_thread = await tournament_channel.create_thread(
+            name="Reserves",
+            type=discord.ChannelType.private_thread
+        )
+        await reserves_thread.send(f"## 📢 This thread is for reserves and late check-ins. {admin_role.mention} will communicate with you here.")
+        tournament.reserves_thread_id = reserves_thread.id
+        # Add all late check in and reserves to the thread
+        if tournament.late_checkin:
+            await reserves_thread.send(f"### LATE CHECK-INS (priority):\n")
+            for player in tournament.late_checkin:
+                user = get_user_safe(guild, player)
+                if user:
+                    await reserves_thread.send(f"{get_mention_safe(guild, player)}")
+        if tournament.reserves:
+            await reserves_thread.send(f"\n### RESERVES:\n")
+            for player in tournament.reserves:
+                user = get_user_safe(guild, player)
+                if user:
+                    await reserves_thread.send(f"{get_mention_safe(guild, player)}")
+
     tournament.curr_num_matches = len(games)
     tournament.save()
 
@@ -564,6 +586,47 @@ class Tournament_Running_View(discord.ui.View):
         # Modal requesting play name and match id. Will add new player to an existing match
         await interaction.response.send_modal(Add_Player_Modal(self.tournament))
 
+    @discord.ui.button(label="➕ Add New Match", style=discord.ButtonStyle.blurple, custom_id="add_match_button")
+    async def add_match(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Check if the user has the admin role or is a server admin
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+        
+        tournament_channel = discord.utils.get(interaction.guild.text_channels, id=self.tournament.tournament_channel_id)
+        admin_role = discord.utils.get(interaction.guild.roles, name=self.tournament.admin_role)
+        
+        new_match_id = f"R{self.tournament.round}-G{len(self.tournament.matches)+1}"
+        thread = await tournament_channel.create_thread(
+            name=f"Round {self.tournament.round} - Game {len(self.tournament.matches)+1}", 
+            type=discord.ChannelType.private_thread,
+            auto_archive_duration = 10080 # Hide after 1 week
+            )
+        
+        new_match = {
+            "id": new_match_id,
+            "players": [],
+            "winners": [],
+            "thread_id": thread.id,
+            "thread_msg_id": None
+        }
+
+        if not self.tournament.thread_msg:
+            await thread.send("### Hello participants! Please, be respectful and follow the tournament rules!")
+        else:
+            await thread.send(self.tournament.thread_msg)
+        
+        start_match_view = Start_Match_View(new_match_id, self.tournament)
+        start_match_view = await thread.send(f"Once the match is over, an Admin will press the button below to set the winner of the match.\n"
+                                            f"*Tag {admin_role.mention} if you need help with anything*", view=start_match_view)
+        await start_match_view.pin()
+
+        # Save the message ID of the thread message with the view
+        new_match["thread_msg_id"] = start_match_view.id
+
+        self.tournament.matches.append(new_match)
+        self.tournament.curr_num_matches += 1
+        self.tournament.save()
+        
     @discord.ui.button(label="🏅 Set Match Winner", style=discord.ButtonStyle.blurple, custom_id="set_match_winner_button")
     async def set_winner(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
