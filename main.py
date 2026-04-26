@@ -17,7 +17,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 bot = discord.Bot(intents=intents)
-version = "v2.1"
+version = "v2.2"
 
 @bot.event
 async def on_ready():
@@ -337,6 +337,7 @@ class HelpView(discord.ui.View):
             "`/register_player` - Register a player to a tournament manually.\n\n"
             "`/set_reg_channel` - Change the registration channel after a tournament has been created.\n\n"
             "`/reload_thread_buttons` - Reload the admin buttons for that specific Match Thread.\n\n"
+            "`/reload_tournament_menu` - Reload the tournament admin menu. This needs to be run in the tournament channel.\n\n"
             "`/help` - Get help with the bot.\n"
             "**-----**"
         )
@@ -355,6 +356,7 @@ class HelpView(discord.ui.View):
             value=(
                 "1. Use `/create` to create a new tournament."
                 "Enter the channel where you'd like the registration message to be sent and the maximum number of players in the tournament.\n"
+                "You can also set an image for the tournament embed, but it's not required.\n"
                 "2. Note the ID of the tournament from the confirmation message. But you can always find it again using `/tournaments_list`.\n"
                 "3. Admin and Participant roles will be created automatically.\n"
                 "4. Use `/admin` + the `id` of the tournament to open the admin menu.\n\n"
@@ -369,9 +371,10 @@ class HelpView(discord.ui.View):
             value=(
                 "If you run into issues or simply want to restart the tournament:\n"
                 "1. Use `/admin` + the `id` of the tournament to open the admin menu.\n"
-                "2. Click on the `🔄Restart Tournament` button.\n"
+                "2. Click on the `🔄Restart All` button.\n"
                 "3. Wait a few seconds.\n"
-                "3. The tournament will be reset, only keeping the registered players, and you can start over.\n\n"
+                "4. The tournament will be reset, only keeping the registered players, and you can start over.\n\n"
+                "You can also reset just the current game threads by clicking the `🔄Restart Games` button. This will keep the tournament setup and players, but reset the current game threads and matches.\n\n"
                 "**-----**"
             ),
             inline=False
@@ -471,9 +474,12 @@ class HelpView(discord.ui.View):
             inline=False
         )
         self.help_embed.add_field(
-            name="👥 Player List",
+            name="👥 Players Info",
             value=(
-                "Show a list of all players registered for the tournament.\n"
+                "This gives you 3 options.\n"
+                "1. Registered (and reserves): See the list of registered players and reserves.\n"
+                "2. Check-ins: See the list of players who checked in for the tournament. Only these players will be added to the matches when you start the tournament.\n"
+                "3. Late Check-ins: See the list of players who checked in late. These players will have priority when adding reserves to matches.\n"
                 "**-----**"
             ),
             inline=False
@@ -506,7 +512,16 @@ class HelpView(discord.ui.View):
             inline=False
         )
         self.help_embed.add_field(
-            name="🔄 Restart",
+            name="🔄 Restart Games",
+            value=(
+                "Restart all current game threads. This will delete all current threads and the existing matches.\n"
+                "*This will keep the tournament channels, registered players and check-ins, but reset the tournament to round 1.*\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="🔄 Restart all",
             value=(
                 "Resets the tournament and allows you to start over.\n"
                 "*This will keep the registered players and roles, but all other data will be lost, including the tournament channels.*\n"
@@ -563,6 +578,15 @@ class HelpView(discord.ui.View):
                 "Manually add a player to the match. This uses the player's **Username** and not Display Name.\n"
                 "You'll need the Match ID. It's formatted like this: `R(round number)-G(game number)`.\n"
                 "E.g., `R1-G2` for Game 2 of Round 1.\n"
+                "**-----**"
+            ),
+            inline=False
+        )
+        self.help_embed.add_field(
+            name="➕ Add New Match",
+            value=(
+                "Manually add a new match to the current round. This will create a new empty match thread.\n"
+                "You'll need to manually add players to this match.\n"
                 "**-----**"
             ),
             inline=False
