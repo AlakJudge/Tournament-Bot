@@ -107,14 +107,22 @@ class kick_view(discord.ui.View):
         # Reload the latest tournament data
         tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
         self.tournament = tournament  # Update the view's reference
+
+        await interaction.response.defer()
+
         # Get necessary user and channels
         player = discord.utils.get(interaction.guild.members, name=self.player_name)
         participants_channel = await interaction.guild.fetch_channel(self.tournament.participants_channel_id)
         tournament_channel = await interaction.guild.fetch_channel(self.tournament.tournament_channel_id)
+        
         # Check if player is still in the server
         if not player:
             await interaction.response.send_message(f"Unable to kick. Player not found.", ephemeral=True)
             return
+        
+        # Remove participant role from user
+        participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=self.tournament.participants_role) 
+        await player.remove_roles(participants_role)
         
         # Unregister the player from the tournament
         if self.player_name in self.tournament.players:
@@ -133,9 +141,8 @@ class kick_view(discord.ui.View):
     
         await participants_channel.send(f"----------------------------------\n"
                                         f"{player.mention} has been kicked from '{self.tournament.name}'.")
-        await interaction.response.defer()
 
-        await self.message.delete()
+        await interaction.message.delete()
 
 # Function to register a player to a tournament
 async def register_player_to_tournament(tournament, player, interaction=None):
@@ -148,11 +155,17 @@ async def register_player_to_tournament(tournament, player, interaction=None):
     if player.name in tournament.players or player.name in tournament.reserves:
         await interaction.response.send_message(f"Registration failed. '{player.name}' is already registered to '{tournament.name}'.", ephemeral=True)
         return
+    
+    # Get player user object
+    player_user = discord.utils.get(interaction.guild.members, name=player.name)
+    if not player_user:
+        await interaction.response.send_message(f"Registration failed. User '{player.name}' not found in the server.", ephemeral=True)
+        return
 
     # Assign the participant role to the user
     if tournament.participants_role and not t_debug.is_dummy_player(player.name):
         participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.participants_role) 
-        await interaction.user.add_roles(participants_role)
+        await player_user.add_roles(participants_role)
 
     k_view = kick_view(tournament, player.name) # Set up view for kick button
 
