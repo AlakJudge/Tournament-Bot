@@ -573,9 +573,9 @@ class CheckinModal(discord.ui.Modal):
             return False
 
         # Calculate when check-in would end
-        checkin_end = t_start_time - values_in_seconds[1] + values_in_seconds[2]
-        if checkin_end > t_start_time:
-            await interaction.response.send_message(f"Check-in end time exceeds the tournament start time.", ephemeral=True)
+        #checkin_end = t_start_time - values_in_seconds[1] + values_in_seconds[2]
+        #if checkin_end > t_start_time:
+        #    await interaction.response.send_message(f"Check-in end time exceeds the tournament start time.", ephemeral=True)
         
         await interaction.response.defer(ephemeral=True)
         await activate_checkin(self.tournament, interaction, values_in_seconds)
