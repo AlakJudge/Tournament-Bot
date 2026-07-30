@@ -181,7 +181,7 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
         match["thread_msg_id"] = start_match_view.id
     
     # Create a thread exclusive for late check in and reserves to communicate with admins
-    if tournament.reserves or tournament.late_checkin:
+    if (tournament.reserves or tournament.late_checkin) and tournament.round == 1:
         reserves_thread = await tournament_channel.create_thread(
             name="Reserves",
             type=discord.ChannelType.private_thread
