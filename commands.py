@@ -172,7 +172,9 @@ def register_commands(bot, version):
     
         # Reload the initial thread admin buttons
         view = Start_Match_View(match_id, tournament)
-        await ctx.respond(content="## 🛠 Match Admin Buttons", view=view)
+        msg = await ctx.respond(content="## 🛠 Match Admin Buttons", view=view)
+        sent_msg = await msg.original_response() if hasattr(msg, "original_response") else msg
+        ctx.bot.add_view(view, message_id=sent_msg.id)
 
     @bot.slash_command(name="reload_tournament_menu", description="Reload the tournament admin menu")
     async def reload_tournament_menu(ctx: discord.ApplicationContext, tournament_id: int):
