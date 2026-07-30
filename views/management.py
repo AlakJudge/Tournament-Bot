@@ -1,5 +1,5 @@
 from tournament import Tournament
-from utils.helpers import move_reserve_to_player, unix_convert_date_time, validate_image_url
+from utils.helpers import move_reserve_to_player, unix_convert_date_time, validate_image_url, tournament_lock
 import discord
 
 ###############################
@@ -186,62 +186,63 @@ class Editing_Modal(discord.ui.Modal):
         self.field = field
 
     async def callback(self, interaction: discord.Interaction):
-        # Update tournament data
-        self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id) 
+        async with tournament_lock:
+            # Update tournament data
+            self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id) 
 
-        new_value = self.children[0].value
-        image_removed = False
+            new_value = self.children[0].value
+            image_removed = False
 
-        match self.field:
-            case "Name":
-                self.tournament.edit_name(new_value)
-            case "Game":
-                self.tournament.edit_game(new_value)
-            case "Date":
-                self.tournament.edit_date_time(await unix_convert_date_time(interaction, new_value, self.tournament.time))
-                self.tournament.edit_date(new_value)
-            case "Time":
-                self.tournament.edit_date_time(await unix_convert_date_time(interaction, self.tournament.date, new_value))
-                self.tournament.edit_time(new_value)
-            case "Prize":
-                self.tournament.edit_prize(new_value)
-            case "Player Cap":
-                # Check if value is an intenger and send error if not
-                if not new_value.isdigit():
-                    await interaction.response.send_message("Player Cap must be a number.", ephemeral=True)
-                    return
-                # Get difference to check if it's possible to promote a reserve to player, and how many
-                difference = int(new_value) - self.tournament.player_cap 
-                # Overwrite the player cap
-                self.tournament.edit_player_cap(int(new_value))
-                
-                for _ in range(difference):
-                    # Promote reserves to players
-                    if await move_reserve_to_player(self.tournament):
-                        promoted_player = discord.utils.get(interaction.guild.members, name=self.tournament.players[-1])
-                        # Send message to tournament channel saying who was promoted from reserve to player
-                        tournament_channel = await interaction.guild.fetch_channel(self.tournament.tournament_channel_id)
-                        await tournament_channel.send(f"**{promoted_player.mention} has been promoted from reserve to player!**")
-            case "Image":
-                if new_value.lower() == "remove":
-                    new_value = None
-                    await interaction.response.send_message("Tournament embed image removed.", ephemeral=True)
-                    image_removed = True
-                else:
-                    # URL validation
-                    if not await validate_image_url(new_value):
-                        await interaction.response.send_message("Invalid URL. Please provide a valid image URL starting with 'http://' or 'https://'", ephemeral=True)
+            match self.field:
+                case "Name":
+                    self.tournament.edit_name(new_value)
+                case "Game":
+                    self.tournament.edit_game(new_value)
+                case "Date":
+                    self.tournament.edit_date_time(await unix_convert_date_time(interaction, new_value, self.tournament.time))
+                    self.tournament.edit_date(new_value)
+                case "Time":
+                    self.tournament.edit_date_time(await unix_convert_date_time(interaction, self.tournament.date, new_value))
+                    self.tournament.edit_time(new_value)
+                case "Prize":
+                    self.tournament.edit_prize(new_value)
+                case "Player Cap":
+                    # Check if value is an intenger and send error if not
+                    if not new_value.isdigit():
+                        await interaction.response.send_message("Player Cap must be a number.", ephemeral=True)
                         return
-        
-                self.tournament.edit_image(new_value)
-        
-        if not image_removed:
-            if not interaction.response.is_done():
-                await interaction.response.send_message(f"{self.field} updated to {new_value}.", ephemeral=True)
-            else:
-                await interaction.followup.send(f"{self.field} updated to {new_value}.", ephemeral=True)
-        self.tournament.save()
-        await update_tournament_embeds(self.tournament, interaction)
+                    # Get difference to check if it's possible to promote a reserve to player, and how many
+                    difference = int(new_value) - self.tournament.player_cap 
+                    # Overwrite the player cap
+                    self.tournament.edit_player_cap(int(new_value))
+                    
+                    for _ in range(difference):
+                        # Promote reserves to players
+                        if await move_reserve_to_player(self.tournament):
+                            promoted_player = discord.utils.get(interaction.guild.members, name=self.tournament.players[-1])
+                            # Send message to tournament channel saying who was promoted from reserve to player
+                            tournament_channel = await interaction.guild.fetch_channel(self.tournament.tournament_channel_id)
+                            await tournament_channel.send(f"**{promoted_player.mention} has been promoted from reserve to player!**")
+                case "Image":
+                    if new_value.lower() == "remove":
+                        new_value = None
+                        await interaction.response.send_message("Tournament embed image removed.", ephemeral=True)
+                        image_removed = True
+                    else:
+                        # URL validation
+                        if not await validate_image_url(new_value):
+                            await interaction.response.send_message("Invalid URL. Please provide a valid image URL starting with 'http://' or 'https://'", ephemeral=True)
+                            return
+            
+                    self.tournament.edit_image(new_value)
+            
+            if not image_removed:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(f"{self.field} updated to {new_value}.", ephemeral=True)
+                else:
+                    await interaction.followup.send(f"{self.field} updated to {new_value}.", ephemeral=True)
+            self.tournament.save()
+            await update_tournament_embeds(self.tournament, interaction)
 
 # Update the tournament embeds
 async def update_tournament_embeds(t:Tournament, interaction: discord.Interaction):
@@ -280,18 +281,19 @@ class Delete_Confirmation_View(discord.ui.View):
 
     @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
     async def confirm(self, button: discord.ui.Button,interaction: discord.Interaction):
-        Tournament.delete_tournament(interaction.guild.id, self.tournament.id)
+        async with tournament_lock:
+            Tournament.delete_tournament(interaction.guild.id, self.tournament.id)
 
-        # Delete all messages related to the tournament, if they exist
-        await delete_all_tournament_messages(interaction, self.tournament)
+            # Delete all messages related to the tournament, if they exist
+            await delete_all_tournament_messages(interaction, self.tournament)
 
-        # Delete yes/no buttons view
-        await self.message.delete()
-        
-        # Delete tournament roles
-        await delete_tournament_roles(interaction, self.tournament, "Tournament deleted by admin.")
+            # Delete yes/no buttons view
+            await self.message.delete()
+            
+            # Delete tournament roles
+            await delete_tournament_roles(interaction, self.tournament, "Tournament deleted by admin.")
 
-        await interaction.response.send_message(f"Tournament '{self.tournament.name}' Deleted successfully.", ephemeral=True)
+            await interaction.response.send_message(f"Tournament '{self.tournament.name}' Deleted successfully.", ephemeral=True)
 
     @discord.ui.button(label="No", style=discord.ButtonStyle.red)
     async def cancel(self, button: discord.ui.Button, interaction: discord.Interaction):
@@ -308,18 +310,19 @@ class Archive_Confirmation_View(discord.ui.View):
 
     @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
     async def confirm(self, button: discord.ui.Button,interaction: discord.Interaction):
-        Tournament.archive_tournament(interaction.guild.id, self.tournament.id)
+        async with tournament_lock:
+            Tournament.archive_tournament(interaction.guild.id, self.tournament.id)
 
-        # Delete all messages related to the tournament, if they exist
-        await delete_all_tournament_messages(interaction, self.tournament, archive=True)
+            # Delete all messages related to the tournament, if they exist
+            await delete_all_tournament_messages(interaction, self.tournament, archive=True)
 
-        # Delete yes/no buttons view
-        await self.message.delete()
-        
-        # Delete tournament roles
-        await delete_tournament_roles(interaction, self.tournament, "Tournament archived by admin.")
+            # Delete yes/no buttons view
+            await self.message.delete()
+            
+            # Delete tournament roles
+            await delete_tournament_roles(interaction, self.tournament, "Tournament archived by admin.")
 
-        await interaction.response.send_message(f"Tournament '{self.tournament.name}' Archived successfully.", ephemeral=True)
+            await interaction.response.send_message(f"Tournament '{self.tournament.name}' Archived successfully.", ephemeral=True)
 
     @discord.ui.button(label="No", style=discord.ButtonStyle.red)
     async def cancel(self, button: discord.ui.Button, interaction: discord.Interaction):

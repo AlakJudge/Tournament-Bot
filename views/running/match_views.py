@@ -2,17 +2,37 @@ import discord
 import asyncio
 
 from tournament import Tournament
-from utils.helpers import check_tournament_admin
+from utils.helpers import check_tournament_admin, tournament_lock
 from utils.debug import get_user_safe
-from views.running.logic import tournament_lock, run_tournament, add_player_to_match, remove_player_from_match, set_match_winner, all_winners_selected, send_round_winners
+from views.running.logic import run_tournament, add_player_to_match, remove_player_from_match, set_match_winner, all_winners_selected, send_round_winners
 
 class Start_Match_View(discord.ui.View):
     def __init__(self, match_id, tournament: Tournament):
         super().__init__(timeout=None)
         self.match_id = match_id 
         self.tournament: Tournament = tournament
+        
+        # Build buttons per-instance with a match_id in each custom_id field to avoid conflicts with other matches
+        set_winner_button = discord.ui.Button(label="🏅 Set Winner", style=discord.ButtonStyle.green, custom_id=f"set_winner_button_{match_id}")
+        set_winner_button.callback = self.set_winner
+        self.add_item(set_winner_button)
+        
+        add_reserve_button = discord.ui.Button(label="➕ Add Reserve", style=discord.ButtonStyle.blurple, custom_id=f"add_reserve_button_{match_id}")
+        add_reserve_button.callback = self.add_reserve
+        self.add_item(add_reserve_button)
+        
+        transfer_player_button = discord.ui.Button(label="⏩ Transfer Player", style=discord.ButtonStyle.blurple, custom_id=f"transfer_player_button_{match_id}")
+        transfer_player_button.callback = self.transfer_player
+        self.add_item(transfer_player_button)
+        
+        remove_player_button = discord.ui.Button(label="❌ Remove Player", style=discord.ButtonStyle.red, custom_id=f"remove_player_button_{match_id}")
+        remove_player_button.callback = self.remove_player
+        self.add_item(remove_player_button)
+        
+        ready_check_button = discord.ui.Button(label="✅ Ready Check", style=discord.ButtonStyle.green, custom_id=f"ready_check_button_{match_id}")
+        ready_check_button.callback = self.ready_up
+        self.add_item(ready_check_button)
 
-    @discord.ui.button(label="🏅 Set Winner", style=discord.ButtonStyle.green, custom_id="set_winner_button")
     async def set_winner(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -23,7 +43,6 @@ class Start_Match_View(discord.ui.View):
         winner_view = Select_Winner_View(self.tournament, self.match_id)
         await interaction.response.send_message(f"An Admin may now select the winner(s) of the match.", view=winner_view)
 
-    @discord.ui.button(label="➕ Add Reserve", style=discord.ButtonStyle.blurple, custom_id="add_reserve_button")
     async def add_reserve(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -58,7 +77,6 @@ class Start_Match_View(discord.ui.View):
             else:
                 await interaction.response.send_message("No reserves available to add.", ephemeral=True)
 
-    @discord.ui.button(label="⏩ Transfer Player", style=discord.ButtonStyle.blurple, custom_id="transfer_player_button")
     async def transfer_player(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -71,7 +89,6 @@ class Start_Match_View(discord.ui.View):
         transfer_view = Transfer_Player_View(self.tournament, self.match_id)
         await interaction.response.send_message("", view=transfer_view, ephemeral=True)
 
-    @discord.ui.button(label="❌ Remove Player", style=discord.ButtonStyle.blurple, custom_id="remove_player_button")
     async def remove_player(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -84,7 +101,6 @@ class Start_Match_View(discord.ui.View):
         remove_view = Remove_Player_View(self.tournament, self.match_id)
         await interaction.response.send_message("", view=remove_view, ephemeral=True)
 
-    @discord.ui.button(label="✅ Ready Check", style=discord.ButtonStyle.green, custom_id="ready_check_button")
     async def ready_up(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
@@ -240,27 +256,28 @@ class Select_Winner_Menu(discord.ui.Select):
             match["winners"] = [winner.name for winner in winners] # Update the match with multiple winners
             self.tournament.save()
             
-            # Handle tournament progression logic
-            if self.tournament.curr_num_matches == 1:
+        # Handle tournament progression logic
+        if self.tournament.curr_num_matches == 1:
+            async with tournament_lock:
                 self.tournament.set_tournament_winner(", ".join(match["winners"]))
                 self.tournament.save()
-                await run_tournament(self.tournament, interaction)
-            else:
-                # Get tournament channel object
-                tournament_channel = discord.utils.get(interaction.guild.text_channels, id=self.tournament.tournament_channel_id)
-                # Check if all round winners have been selected
-                if all_winners_selected(self.tournament):
-                    await send_round_winners(interaction, self.tournament)
-                    await tournament_channel.send("## We're ready for the next round! :fire:")
+            await run_tournament(self.tournament, interaction)
+        else:
+            # Get tournament channel object
+            tournament_channel = discord.utils.get(interaction.guild.text_channels, id=self.tournament.tournament_channel_id)
+            # Check if all round winners have been selected
+            if all_winners_selected(self.tournament):
+                await send_round_winners(interaction, self.tournament)
+                await tournament_channel.send("## We're ready for the next round! :fire:")
 
-            # Disable to prevent multiple winners
-            self.disabled = True
-            if self.view:
-                # Update the view and message
-                for child in self.view.children:
-                    if isinstance(child, discord.ui.Select):
-                        child.disabled = True
-                await interaction.message.edit(view=self.view)
+        # Disable to prevent multiple winners
+        self.disabled = True
+        if self.view:
+            # Update the view and message
+            for child in self.view.children:
+                if isinstance(child, discord.ui.Select):
+                    child.disabled = True
+            await interaction.message.edit(view=self.view)
 
 class Ready_Check_View(discord.ui.View):    
     def __init__(self):
@@ -371,8 +388,9 @@ class Set_Winner_Modal(discord.ui.Modal):
         if success:
             # Check if it's the last match of the tournament
             if tournament.curr_num_matches == 1:
-                tournament.set_tournament_winner(player)
-                tournament.save()
+                async with tournament_lock:
+                    tournament.set_tournament_winner(player)
+                    tournament.save()
                 await run_tournament(tournament, interaction)
             else:
                 # Fetch tournament channel object

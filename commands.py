@@ -1,7 +1,7 @@
 import discord
 
 from utils.debug import set_debug_mode, add_dummy_players, clean_dummy_players, is_debug_mode_enabled
-from utils.helpers import validate_image_url
+from utils.helpers import validate_image_url, tournament_lock
 from tournament import Tournament
 
 def register_commands(bot, version):
@@ -225,9 +225,10 @@ def register_commands(bot, version):
         if admin_role not in user.roles and not user.guild_permissions.administrator:
             await ctx.respond(f"Failed. You must have the '{tournament.admin_role}' role to perform this action.", ephemeral=True)
             return
-
-        # Register the player
-        await register_player_to_tournament(tournament, player, ctx.interaction)
+        
+        async with tournament_lock:
+            # Register the player
+            await register_player_to_tournament(tournament, player, ctx.interaction)
 
     @bot.slash_command(name="help", description="Get help with the bot")
     async def help(ctx: discord.ApplicationContext):

@@ -8,7 +8,7 @@ from views.checkin import cancel_scheduled_checkin, schedule_checkin
 from tournament import Tournament
 from views.management import create_tournament_embed, update_tournament_embeds, Edit_Options_View, Archive_Confirmation_View, Delete_Confirmation_View
 from views.registration import Reg_Msg_Modal
-from utils.helpers import check_tournament_admin, schedule_custom_notifications, cancel_scheduled_notifications, parse_seconds_to_human_readable, parse_time_string, move_reserve_to_player, move_players_to_reserve
+from utils.helpers import tournament_lock, check_tournament_admin, schedule_custom_notifications, cancel_scheduled_notifications, parse_seconds_to_human_readable, parse_time_string, move_reserve_to_player, move_players_to_reserve
 
 class T_Admin(discord.ui.View):
     def __init__(self, tournament:Tournament):
@@ -111,7 +111,8 @@ class T_Admin(discord.ui.View):
             await interaction.response.send_message(f"Registration is already closed.", ephemeral=True)
             return
         
-        await close_registration(interaction=interaction, tournament=self.tournament)
+        async with tournament_lock:
+            await close_registration(interaction=interaction, tournament=self.tournament)
 
     # Start Tournament button
     @discord.ui.button(label="🟢 Start", style = discord.ButtonStyle.green, custom_id="start_tournament_button")
@@ -140,9 +141,10 @@ class T_Admin(discord.ui.View):
                 button.label = "⛔ Deactivate Check-in"
                 button.style = discord.ButtonStyle.red
         else:
-            if await deactivate_checkin(self.tournament, interaction):
-                button.label = "✅ Activate Check-in"
-                button.style = discord.ButtonStyle.green
+            async with tournament_lock:
+                if await deactivate_checkin(self.tournament, interaction):
+                    button.label = "✅ Activate Check-in"
+                    button.style = discord.ButtonStyle.green
 
         embed = T_Admin.get_embed(self)        
         await interaction.message.edit(embed=embed, view=self)
@@ -417,71 +419,72 @@ async def restart_tournament(tournament:Tournament, interaction: discord.Interac
     
     await interaction.response.defer()
 
-    # Close registration if it is open
-    if tournament.reg_status == "Open":
-        await close_registration(interaction, tournament)
-        await update_tournament_embeds(tournament, interaction)
-        
-    # Deactive check-in button if it is active
-    if tournament.get_checkin_status():
-        # Get admin msg
-        admin_msg_channel = tournament.admin_msg_channel_id
-        admin_msg = tournament.admin_msg_id
-        admin_channel = await interaction.guild.fetch_channel(admin_msg_channel)
-        try:
-            message = await admin_channel.fetch_message(admin_msg)
-            embed = message.embeds[0]
-            view = T_Admin(tournament)
+    async with tournament_lock:
+        # Close registration if it is open
+        if tournament.reg_status == "Open":
+            await close_registration(interaction, tournament)
+            await update_tournament_embeds(tournament, interaction)
             
-            for item in view.children:
-                if isinstance(item, discord.ui.Button) and item.custom_id == "checkin_button":
-                    item.label = "✅ Activate Check-in"
-                    item.style = discord.ButtonStyle.green
-            await message.edit(view=view, embed=embed)
-        except discord.NotFound:
-            pass
-
-    # Delete all messages and channels related to the tournament, if they exist.
-    # Except the admin message and reg channel ID
-    if not restart_games_only:
-        if tournament.reg_msg_id:
-            reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
+        # Deactive check-in button if it is active
+        if tournament.get_checkin_status():
+            # Get admin msg
+            admin_msg_channel = tournament.admin_msg_channel_id
+            admin_msg = tournament.admin_msg_id
+            admin_channel = await interaction.guild.fetch_channel(admin_msg_channel)
             try:
-                message = await reg_channel.fetch_message(tournament.reg_msg_id)
-                await message.delete()
-            except discord.NotFound:
-                pass
-        if tournament.tournament_channel_id:
-            try:
-                tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
-                await tournament_channel.delete()
-            except discord.NotFound:
-                pass
-        if tournament.participants_channel_id:
-            try:
-                participants_channel = await interaction.guild.fetch_channel(tournament.participants_channel_id)
-                await participants_channel.delete()
-            except discord.NotFound:
-                pass
-    else:
-        # Delete all thredas in tournament channel if only restarting games
-        if tournament.tournament_channel_id:
-            try:
-                tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
-                threads = tournament_channel.threads
-                for thread in threads:
-                    await thread.delete()
+                message = await admin_channel.fetch_message(admin_msg)
+                embed = message.embeds[0]
+                view = T_Admin(tournament)
+                
+                for item in view.children:
+                    if isinstance(item, discord.ui.Button) and item.custom_id == "checkin_button":
+                        item.label = "✅ Activate Check-in"
+                        item.style = discord.ButtonStyle.green
+                await message.edit(view=view, embed=embed)
             except discord.NotFound:
                 pass
 
-    # Reset tournament data
-    tournament.restart(restart_games_only)
-    tournament.save()
+        # Delete all messages and channels related to the tournament, if they exist.
+        # Except the admin message and reg channel ID
+        if not restart_games_only:
+            if tournament.reg_msg_id:
+                reg_channel = await interaction.guild.fetch_channel(tournament.reg_channel)
+                try:
+                    message = await reg_channel.fetch_message(tournament.reg_msg_id)
+                    await message.delete()
+                except discord.NotFound:
+                    pass
+            if tournament.tournament_channel_id:
+                try:
+                    tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
+                    await tournament_channel.delete()
+                except discord.NotFound:
+                    pass
+            if tournament.participants_channel_id:
+                try:
+                    participants_channel = await interaction.guild.fetch_channel(tournament.participants_channel_id)
+                    await participants_channel.delete()
+                except discord.NotFound:
+                    pass
+        else:
+            # Delete all thredas in tournament channel if only restarting games
+            if tournament.tournament_channel_id:
+                try:
+                    tournament_channel = await interaction.guild.fetch_channel(tournament.tournament_channel_id)
+                    threads = tournament_channel.threads
+                    for thread in threads:
+                        await thread.delete()
+                except discord.NotFound:
+                    pass
 
-    if interaction.response.is_done():
-        await interaction.followup.send(f"Tournament '{tournament.name}' Restarted successfully.", ephemeral=True)
-    else:
-        await interaction.response.send_message(f"Tournament '{tournament.name}' Restarted successfully.", ephemeral=True)
+        # Reset tournament data
+        tournament.restart(restart_games_only)
+        tournament.save()
+
+        if interaction.response.is_done():
+            await interaction.followup.send(f"Tournament '{tournament.name}' Restarted successfully.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Tournament '{tournament.name}' Restarted successfully.", ephemeral=True)
 
 # Select dropdown for custom notifications
 class NotificationCountSelect(discord.ui.Select):
@@ -539,7 +542,7 @@ class NotificationTimesModal(discord.ui.Modal):
 # Modal for setting up the check-in system
 class CheckinModal(discord.ui.Modal):
     def __init__(self, tournament: Tournament):
-        super().__init__(title="Set the Check-in System")
+        super().__init__(title="Set the Check-in System", timeout=None)
         self.tournament = tournament
         self.add_item(discord.ui.InputText(label=f"Check-in Reminder", placeholder="Time before tournament starts (e.g. 30m, 12h, 2d)"))
         self.add_item(discord.ui.InputText(label=f"Start Check-in", placeholder="Time before tournament starts (e.g. 30m, 12h, 2d)"))
@@ -574,13 +577,9 @@ class CheckinModal(discord.ui.Modal):
             await interaction.response.send_message(f"'Check-in reminder' must be set to a time between now and the tournament start time.", ephemeral=True)
             return False
 
-        # Calculate when check-in would end
-        #checkin_end = t_start_time - values_in_seconds[1] + values_in_seconds[2]
-        #if checkin_end > t_start_time:
-        #    await interaction.response.send_message(f"Check-in end time exceeds the tournament start time.", ephemeral=True)
-        
         await interaction.response.defer(ephemeral=True)
-        await activate_checkin(self.tournament, interaction, values_in_seconds)
+        async with tournament_lock:
+            await activate_checkin(self.tournament, interaction, values_in_seconds)
         return True
 
 async def activate_checkin(tournament: Tournament, interaction: discord.Interaction, times_in_seconds):
@@ -592,6 +591,7 @@ async def activate_checkin(tournament: Tournament, interaction: discord.Interact
     tournament.reserves = []
     tournament.save()
     await update_tournament_embeds(tournament, interaction)
+    await cancel_scheduled_checkin(tournament.id) # Cancel any previously scheduled check-in tasks
     await schedule_checkin(tournament, interaction, times_in_seconds)
     await interaction.followup.send(f"Check-in system has been activated!")
 

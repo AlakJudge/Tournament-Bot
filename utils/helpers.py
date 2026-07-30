@@ -1,6 +1,6 @@
 import discord
 from tournament import Tournament
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import asyncio
 import aiohttp
@@ -10,6 +10,9 @@ import re
 # Dictionary to hold scheduled notification tasks
 scheduled_notification_tasks = {}
 scheduled_checkin_tasks = {}
+
+# Lock to prevent different data from being edited at the same time and causing conflict
+tournament_lock = asyncio.Lock() 
 
 # Check if the user has the admin role or is a server admin
 async def check_tournament_admin(interaction: discord.Interaction, tournament: Tournament):          
@@ -174,9 +177,10 @@ async def send_notification(tournament: Tournament, interaction: discord.Interac
         await keep_message_at_bottom(tournament, interaction, message, duration_seconds, view, type="checkin_start")
         return
     elif type == "checkin_end":
-        tournament.checkin["ended"] = True
-        tournament.save()
-        await move_players_to_reserve(tournament, type="end_of_checkin")
+        async with tournament_lock:
+            tournament.checkin["ended"] = True
+            tournament.save()
+            await move_players_to_reserve(tournament, type="end_of_checkin")
     else:
         message = f"## 🚨 REMINDER {participant_role.mention} 🚨: The tournament '{tournament.name}' will begin in {interval}!"
     

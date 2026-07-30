@@ -2,15 +2,12 @@ from random import shuffle
 from math import ceil
 
 import discord
-import asyncio
 
 from tournament import Tournament
 from utils.debug import get_user_safe, get_mention_safe, is_dummy_player, is_debug_mode_enabled
+from utils.helpers import tournament_lock
 from views.registration import close_registration
 from views.management import create_tournament_embed, update_tournament_embeds
-
-# Lock to prevent different data from being edited at the same time and causing conflict
-tournament_lock = asyncio.Lock() 
 
 # Function that controls the flow of the tournament
 async def run_tournament(t:Tournament, interaction: discord.Interaction):
@@ -26,25 +23,26 @@ async def run_tournament(t:Tournament, interaction: discord.Interaction):
         details = set_details(tournament)
         await interaction.response.send_modal(details)         
         await details.wait()
-        # This will run if it's a brand new tournament
-        if tournament.round == 1:
-            if tournament.reg_status == "Open":
-                await close_registration(interaction, tournament)
-            await set_brackets(interaction, tournament, details.game_size, details.min_games)
-        # This one includes the list of the winners from the previous round
-        else:
-            await set_brackets(interaction, tournament, details.game_size, details.min_games, get_round_winners(tournament))
+        async with tournament_lock:
+            # This will run if it's a brand new tournament
+            if tournament.round == 1:
+                if tournament.reg_status == "Open":
+                    await close_registration(interaction, tournament)
+                    await set_brackets(interaction, tournament, details.game_size, details.min_games)
+            # This one includes the list of the winners from the previous round
+            else:
+                await set_brackets(interaction, tournament, details.game_size, details.min_games, get_round_winners(tournament))
     else:
         tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
         participant_role = discord.utils.get(interaction.guild.roles, name=f"({tournament.id}) Tournament Participant")
         await tournament_channel.send(f"# The winner of '{tournament.name}' is {get_mention_safe(interaction.guild, tournament.tournament_winner)}! CONGRATULATIONS! :tada::tada:\n"
-                                      f"Thank you all {participant_role.mention}s for attending and being awesome. See you next time! :fire:")
+                                    f"Thank you all {participant_role.mention}s for attending and being awesome. See you next time! :fire:")
         await lock_all_threads(interaction, tournament_channel, tournament.round)
 
 # Set the match details for the current round
 class set_details(discord.ui.Modal):
     def __init__(self, tournament:Tournament) -> None:
-        super().__init__(title="Running Details")
+        super().__init__(title="Running Details", timeout=None)
         self.tournament = tournament
 
         if tournament.round == 0:
@@ -59,8 +57,9 @@ class set_details(discord.ui.Modal):
         self.game_size = int(self.children[0].value)
         self.min_games = int(self.children[1].value)
 
-        self.tournament.next_round() # Set round to +1
-        self.tournament.save() # Save to json file
+        async with tournament_lock:
+            self.tournament.next_round() # Set round to +1
+            self.tournament.save() # Save to json file
 
         await interaction.response.send_message(f"You've selected:\n- Game Size: {self.game_size}\n- Min Games: {self.min_games}", ephemeral=True)
        
@@ -208,82 +207,84 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
 
 # Add a player to a match while the tournament is running
 async def add_player_to_match(interaction: discord.Interaction, t: Tournament, match_id: int, player: str):
-    # Update tournament data
-    tournament = Tournament.load_tournament_by_id(interaction.guild.id, t.id)
+    async with tournament_lock:
+        # Update tournament data
+        tournament = Tournament.load_tournament_by_id(interaction.guild.id, t.id)
 
-    # Get player user object
-    user = get_user_safe(interaction.guild, player)
-    
-    if not is_debug_mode_enabled() and not user:
-        return False
-    
-    # Iterate through and find the match
-    match = next((m for m in tournament.matches if m["id"] == match_id), None)
-    if match:
-        if player not in match["players"]:
-            # Handle late check-in players
-            if player in tournament.late_checkin:
-                tournament.late_checkin.remove(player)
-                tournament.checked_in.append(player)
-            # Remove from reserve list and add to player list if player is a reserve
-            if player in tournament.reserves:
-                tournament.reserves.pop(tournament.reserves.index(player))
-                tournament.players.append(player)
-                await update_tournament_embeds(tournament, interaction)    
-            match["players"].append(player)
-            tournament.save()
-            await send_message_to_game_thread(interaction, tournament, match_id, f"{get_mention_safe(interaction.guild, player)} has been added to this match.")
-            return True
-        else:
-            await send_message_to_game_thread(interaction, tournament, match_id, f"Failed. {get_mention_safe(interaction.guild, player)} is already in this match.")
-            return False 
-    await send_message_to_game_thread(interaction, tournament, match_id, f"Failed. Match not found.")
-    return False 
+        # Get player user object
+        user = get_user_safe(interaction.guild, player)
+        
+        if not is_debug_mode_enabled() and not user:
+            return False
+        
+        # Iterate through and find the match
+        match = next((m for m in tournament.matches if m["id"] == match_id), None)
+        if match:
+            if player not in match["players"]:
+                # Handle late check-in players
+                if player in tournament.late_checkin:
+                    tournament.late_checkin.remove(player)
+                    tournament.checked_in.append(player)
+                # Remove from reserve list and add to player list if player is a reserve
+                if player in tournament.reserves:
+                    tournament.reserves.pop(tournament.reserves.index(player))
+                    tournament.players.append(player)
+                    await update_tournament_embeds(tournament, interaction)    
+                match["players"].append(player)
+                tournament.save()
+                await send_message_to_game_thread(interaction, tournament, match_id, f"{get_mention_safe(interaction.guild, player)} has been added to this match.")
+                return True
+            else:
+                await send_message_to_game_thread(interaction, tournament, match_id, f"Failed. {get_mention_safe(interaction.guild, player)} is already in this match.")
+                return False 
+        await send_message_to_game_thread(interaction, tournament, match_id, f"Failed. Match not found.")
+        return False 
 
 # Remove a player from a match while the tournament is running
 async def remove_player_from_match(interaction, tournament: Tournament, match_id: int, player: str):
-    # Update tournament data
-    tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
+    async with tournament_lock:
+        # Update tournament data
+        tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
 
-    user = get_user_safe(interaction.guild, player)
-    match = next((m for m in tournament.matches if m["id"] == match_id), None)
+        user = get_user_safe(interaction.guild, player)
+        match = next((m for m in tournament.matches if m["id"] == match_id), None)
 
-    if match:
-        if player in match["players"]:
-            match["players"].remove(player)
-            tournament.save()
-            await send_message_to_game_thread(interaction, tournament, match_id, f"{get_mention_safe(interaction.guild, player)} has been removed from this match.")
-            # Also remove from thread
-            thread = discord.utils.get(interaction.guild.threads, id=match["thread_id"])
-            if thread:
-                if not is_dummy_player(player):
-                    await thread.remove_user(user)
-                # If match is now empty, lock the thread
-                if not match["players"]:
-                    await thread.edit(locked=True, name=f"{thread.name}🔒")
-                    await thread.send(f"## This match has no players. The thread will be locked.")
-            return True
-        else:
-            print("Failed. Player not in match.")
-            return False 
-    print("Failed. Match not found.")
-    return False
+        if match:
+            if player in match["players"]:
+                match["players"].remove(player)
+                tournament.save()
+                await send_message_to_game_thread(interaction, tournament, match_id, f"{get_mention_safe(interaction.guild, player)} has been removed from this match.")
+                # Also remove from thread
+                thread = discord.utils.get(interaction.guild.threads, id=match["thread_id"])
+                if thread:
+                    if not is_dummy_player(player):
+                        await thread.remove_user(user)
+                    # If match is now empty, lock the thread
+                    if not match["players"]:
+                        await thread.edit(locked=True, name=f"{thread.name}🔒")
+                        await thread.send(f"## This match has no players. The thread will be locked.")
+                return True
+            else:
+                print("Failed. Player not in match.")
+                return False 
+        print("Failed. Match not found.")
+        return False
 
 # Set the winner of a match while the tournament is running
 async def set_match_winner(interaction, tournament: Tournament, match_id: int, player: str):
+    async with tournament_lock:
+        # Iterate through and find the match
+        match = next((m for m in tournament.matches if m["id"] == match_id), None)
+        if match:
+            match["winners"].append(player)
+            tournament.save()
 
-    # Iterate through and find the match
-    match = next((m for m in tournament.matches if m["id"] == match_id), None)
-    if match:
-        match["winners"].append(player)
-        tournament.save()
+            mentions = ", ".join(discord.utils.get(interaction.guild.members, name=p).mention for p in match["winners"])
+            await send_message_to_game_thread(interaction, tournament, match_id, f"## Winners of this match: {mentions}")
+            return True
 
-        mentions = ", ".join(discord.utils.get(interaction.guild.members, name=p).mention for p in match["winners"])
-        await send_message_to_game_thread(interaction, tournament, match_id, f"## Winners of this match: {mentions}")
-        return True
-
-    print("Failed. Match not found.")
-    return False
+        print("Failed. Match not found.")
+        return False
 
 # Get winners for all matches in the round
 def get_round_winners(tournament: Tournament):
