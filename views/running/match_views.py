@@ -33,7 +33,7 @@ class Start_Match_View(discord.ui.View):
         ready_check_button.callback = self.ready_up
         self.add_item(ready_check_button)
 
-    async def set_winner(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def set_winner(self, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -43,7 +43,7 @@ class Start_Match_View(discord.ui.View):
         winner_view = Select_Winner_View(self.tournament, self.match_id)
         await interaction.response.send_message(f"An Admin may now select the winner(s) of the match.", view=winner_view)
 
-    async def add_reserve(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def add_reserve(self, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -77,7 +77,7 @@ class Start_Match_View(discord.ui.View):
             else:
                 await interaction.response.send_message("No reserves available to add.", ephemeral=True)
 
-    async def transfer_player(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def transfer_player(self, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -89,7 +89,7 @@ class Start_Match_View(discord.ui.View):
         transfer_view = Transfer_Player_View(self.tournament, self.match_id)
         await interaction.response.send_message("", view=transfer_view, ephemeral=True)
 
-    async def remove_player(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def remove_player(self, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
             return
@@ -101,7 +101,7 @@ class Start_Match_View(discord.ui.View):
         remove_view = Remove_Player_View(self.tournament, self.match_id)
         await interaction.response.send_message("", view=remove_view, ephemeral=True)
 
-    async def ready_up(self, button: discord.ui.Button, interaction: discord.Interaction):
+    async def ready_up(self, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
             return
