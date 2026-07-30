@@ -62,6 +62,12 @@ class Start_Match_View(discord.ui.View):
                 reserve = self.tournament.reserves[0]
             success = await add_player_to_match(interaction=interaction, t=self.tournament, match_id=self.match_id, player=reserve)
             if success:
+                user = get_user_safe(interaction.guild, reserve)
+                # Remove player from reserves thread
+                reserves_thread = discord.utils.get(interaction.guild.threads, id=self.tournament.reserves_thread_id)
+                if reserves_thread and user:
+                    await reserves_thread.remove_user(user)
+                
                 if interaction.response.is_done():
                     await interaction.followup.send(f"Reserve '{reserve}' added to match successfully.", ephemeral=True)
                 else:
