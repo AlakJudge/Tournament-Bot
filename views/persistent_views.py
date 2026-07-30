@@ -143,7 +143,6 @@ async def restore_threads_views(bot):
                         if msg_id:
                             view = Start_Match_View(match_id=match_id, tournament=tournament)
                             bot.add_view(view, message_id=msg_id)
-                            print(f"Restored view for thread {thread_id} in tournament {tournament.id} in server {guild.id}")
                             
                 except Exception as e:
                     print(f"Failed to restore threads views for tournament {tournament.id} in server {guild.id}: {e}")
