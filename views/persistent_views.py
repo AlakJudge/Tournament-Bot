@@ -132,7 +132,7 @@ async def restore_threads_views(bot):
                         if not thread_id:
                             continue
 
-                        thread = guild.get_channel(thread_id)  
+                        thread = guild.get_channel_or_thread(thread_id)  
                         if not thread:
                             match["thread_id"] = None
                             match["thread_msg_id"] = None
