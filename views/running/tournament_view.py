@@ -88,6 +88,16 @@ class Tournament_Running_View(discord.ui.View):
         self.tournament.curr_num_matches += 1
         self.tournament.save()
         
+        await interaction.response.send_message(f"New match {new_match_id} and thread created.", ephemeral=True)
+    
+    @discord.ui.button(label="❌ Remove Match", style=discord.ButtonStyle.red, custom_id="remove_match_button")
+    async def remove_match(self, button: discord.ui.Button, interaction: discord.Interaction):
+        # Check if the user has the admin role or is a server admin
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+        
+        await interaction.response.send_modal(Remove_Match_Modal(self.tournament))
+
     @discord.ui.button(label="🏅 Set Match Winner", style=discord.ButtonStyle.blurple, custom_id="set_match_winner_button")
     async def set_winner(self, button: discord.ui.Button, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
@@ -180,3 +190,33 @@ class Announcement_Modal(discord.ui.Modal):
         # Send concurrently if thread not locked
         await asyncio.gather(*(thread.send(message) for thread in threads if thread and not thread.locked))
         await interaction.followup.send(f"Announcement sent to all active game threads.", ephemeral=True)
+        
+class Remove_Match_Modal(discord.ui.Modal):
+    def __init__(self, tournament: Tournament):
+        super().__init__(title="Remove Match")
+        self.tournament = tournament
+        self.add_item(discord.ui.InputText(
+            label="Match ID to Remove", 
+            style=discord.InputTextStyle.short, 
+            placeholder="R1-G1",
+            required=True))
+
+    async def callback(self, interaction: discord.Interaction):
+        match_id_to_remove = self.children[0].value.strip()
+        match_to_remove = next((match for match in self.tournament.matches if match["id"] == match_id_to_remove), None)
+        
+        if not match_to_remove:
+            await interaction.response.send_message(f"No match found with ID {match_id_to_remove}.", ephemeral=True)
+            return
+        
+        # Remove the match from the tournament
+        self.tournament.matches.remove(match_to_remove)
+        self.tournament.curr_num_matches -= 1
+        self.tournament.save()
+        
+        # Also delete the thread associated with the match
+        thread = discord.utils.get(interaction.guild.threads, id=match_to_remove["thread_id"])
+        if thread:
+            await thread.delete()
+        
+        await interaction.response.send_message(f"Match {match_id_to_remove} has been removed.", ephemeral=True)
