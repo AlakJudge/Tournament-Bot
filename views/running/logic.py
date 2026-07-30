@@ -28,7 +28,7 @@ async def run_tournament(t:Tournament, interaction: discord.Interaction):
             if tournament.round == 1:
                 if tournament.reg_status == "Open":
                     await close_registration(interaction, tournament)
-                    await set_brackets(interaction, tournament, details.game_size, details.min_games)
+                await set_brackets(interaction, tournament, details.game_size, details.min_games)
             # This one includes the list of the winners from the previous round
             else:
                 await set_brackets(interaction, tournament, details.game_size, details.min_games, get_round_winners(tournament))
