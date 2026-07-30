@@ -55,7 +55,7 @@ class Start_Match_View(discord.ui.View):
         self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
 
         # Add first reserve in the list to match
-        if self.tournament.reserves:
+        if self.tournament.reserves or self.tournament.late_checkin:
             if len(self.tournament.late_checkin) > 0:
                 reserve = self.tournament.late_checkin[0]
             else:
