@@ -1,5 +1,5 @@
 from tournament import Tournament
-from t_utils import move_reserve_to_player, unix_convert_date_time, validate_image_url
+from utils.helpers import move_reserve_to_player, unix_convert_date_time, validate_image_url
 import discord
 
 ###############################

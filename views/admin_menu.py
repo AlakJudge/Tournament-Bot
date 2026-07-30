@@ -1,12 +1,14 @@
 from datetime import datetime
-from t_registration import Registration, close_registration
-from tournament import Tournament
-from t_management import *
-from t_registration import Reg_Msg_Modal
-from t_utils import *
-from t_running import run_tournament
-from t_checkin import *
+
 import discord
+
+from views.registration import Registration, close_registration
+from views.running.logic import run_tournament
+from views.checkin import cancel_scheduled_checkin, schedule_checkin
+from tournament import Tournament
+from views.management import create_tournament_embed, update_tournament_embeds, Edit_Options_View, Archive_Confirmation_View, Delete_Confirmation_View
+from views.registration import Reg_Msg_Modal
+from utils.helpers import check_tournament_admin, schedule_custom_notifications, cancel_scheduled_notifications, parse_seconds_to_human_readable, parse_time_string, move_reserve_to_player, move_players_to_reserve
 
 class T_Admin(discord.ui.View):
     def __init__(self, tournament:Tournament):

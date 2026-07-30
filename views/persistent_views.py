@@ -1,7 +1,7 @@
 from tournament import Tournament
-from t_registration import Registration, kick_view
-from t_admin_menu import T_Admin
-from t_running import Tournament_Running_View, Start_Match_View
+from views.registration import Registration, kick_view
+from views.admin_menu import T_Admin
+from views.running.tournament_view import Tournament_Running_View, Start_Match_View
 import re
 import discord
 

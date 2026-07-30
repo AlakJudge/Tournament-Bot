@@ -2,7 +2,7 @@ import discord
 from tournament import Tournament
 import asyncio
 from datetime import datetime, timedelta
-from t_utils import *
+from utils.helpers import *
 
 async def schedule_checkin(tournament: Tournament, interaction: discord.Interaction, timings: list[int]):
     participant_role = discord.utils.get(interaction.guild.roles, name=f"({tournament.id}) Tournament Participant")
@@ -136,6 +136,8 @@ async def check_in_user(interaction: discord.Interaction, tournament: Tournament
     # Set the user as checked in
     if tournament.checkin["ended"]:
         tournament.late_checkin_player(player)
+        if player in tournament.reserves:
+            tournament.reserves.remove(player)        
         await interaction.response.send_message("Check-in period has ended. You will be added to the 'Late Check-in' list.", ephemeral=True)
     else:
         tournament.checkin_player(player)

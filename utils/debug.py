@@ -1,26 +1,6 @@
 from tournament import Tournament
 import discord
 
-class DummyInteraction:
-    class DummyResponse:
-        @staticmethod
-        async def send_message(*args, **kwargs):
-            pass  # Do nothing
-
-        @staticmethod
-        def is_done():
-            return True  # Pretend the response is always done
-
-    class DummyFollowup:
-        @staticmethod
-        async def send(*args, **kwargs):
-            pass  # Do nothing
-
-    def __init__(self, guild):
-        self.guild = guild
-        self.response = DummyInteraction.DummyResponse()
-        self.followup = DummyInteraction.DummyFollowup()
-
 # Dummy user for testing
 class DummyUser:
     def __init__(self, name, user_id=None):
@@ -40,10 +20,13 @@ TOURNAMENT_DEBUG_MODE = False
 def set_debug_mode(enabled: bool):
     global TOURNAMENT_DEBUG_MODE
     TOURNAMENT_DEBUG_MODE = enabled
+    
+def is_debug_mode_enabled():
+    return TOURNAMENT_DEBUG_MODE
 
 # Get Discord user object or dummy user based on debug mode
 def get_user_safe(guild, player_name):
-    if TOURNAMENT_DEBUG_MODE:
+    if is_debug_mode_enabled():
         # In debug mode, check if it's a dummy player (starts with "dummy_")
         if player_name.startswith("dummy_"):
             return DummyUser(player_name)
@@ -74,7 +57,14 @@ async def add_dummy_players(tournament: Tournament, count: int):
         return False, "Debug mode not enabled"
     
     added = 0
-    for i in range(count):
+    current_dummy_count = 0
+    
+    # Find existing dummy players to avoid duplicates
+    for player in tournament.players:
+        if is_dummy_player(player):
+            current_dummy_count += 1
+    
+    for i in range(current_dummy_count, current_dummy_count + count):
         dummy_name = f"dummy_player_{i+1:03d}"
         
         # Add to players if space available
@@ -87,6 +77,7 @@ async def add_dummy_players(tournament: Tournament, count: int):
             tournament.reserves.append(dummy_name)
             added += 1
 
+    
     tournament.save()
     return True, f"Added {added} dummy players"
 

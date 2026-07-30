@@ -1,8 +1,9 @@
-from t_utils import check_tournament_admin, move_reserve_to_player
-from t_management import   update_tournament_embeds, create_tournament_embed
-from tournament import Tournament
 import discord
-import t_debug
+
+from utils.helpers import check_tournament_admin, move_reserve_to_player
+from views.management import   update_tournament_embeds, create_tournament_embed
+from tournament import Tournament
+from utils.debug import get_mention_safe, is_dummy_player
 
 class Registration(discord.ui.View):    
     def __init__(self, tournament:Tournament):
@@ -41,7 +42,7 @@ class Registration(discord.ui.View):
             if await move_reserve_to_player(self.tournament):
                 # Send message to tournament channel saying who was promoted from reserve to player
                 promoted_player_name = self.tournament.players[-1]
-                mention = t_debug.get_mention_safe(interaction.guild, promoted_player_name)
+                mention = get_mention_safe(interaction.guild, promoted_player_name)
                 await tournament_channel.send(f"**{mention} has been promoted from reserve to player!**")
         else:
             self.tournament.unregister_reserve(player_name)
@@ -163,7 +164,7 @@ async def register_player_to_tournament(tournament, player, interaction=None):
         return
 
     # Assign the participant role to the user
-    if tournament.participants_role and not t_debug.is_dummy_player(player.name):
+    if tournament.participants_role and not is_dummy_player(player.name):
         participants_role: discord.Role = discord.utils.get(interaction.guild.roles, name=tournament.participants_role) 
         await player_user.add_roles(participants_role)
 
@@ -183,7 +184,7 @@ async def register_player_to_tournament(tournament, player, interaction=None):
     tournament.save() # Save registration to file
     await update_tournament_embeds(tournament, interaction) # Edit the embed with updated number of players
 
-    mention = t_debug.get_mention_safe(interaction.guild, player.name)
+    mention = get_mention_safe(interaction.guild, player.name)
     await participants_channel.send(f"----------------------------------\n"
                                      f"{mention} registered to '{tournament.name}' successfully.", view=k_view)
 
