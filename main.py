@@ -3,6 +3,7 @@ import os
 from tournament import Tournament
 from views.persistent_views import restore_all_views
 from utils.helpers import DummyInteraction, schedule_custom_notifications
+from views.checkin import schedule_checkin
 from commands import register_commands
 
 if os.getenv("GITHUB_ACTIONS") != "true":
@@ -33,9 +34,16 @@ async def on_ready():
         for tournament in tournaments:
             if hasattr(tournament, "notification_intervals"):
                 await schedule_custom_notifications(
-                    tournament, dummy_interaction, 
-                    [i["seconds"] for i in tournament.notification_intervals], 
+                    tournament, dummy_interaction,
+                    [i["seconds"] for i in tournament.notification_intervals],
                     startup=True
+                    )
+
+            # Reschedule check-in reminder/start/end tasks lost on restart.
+            if tournament.checkin.get("status") and not tournament.checkin.get("ended"):
+                await schedule_checkin(
+                    tournament, dummy_interaction,
+                    [tournament.checkin["reminder"], tournament.checkin["start"], tournament.checkin["duration"]]
                     )
     
     # Force sync slash commands

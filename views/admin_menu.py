@@ -596,6 +596,8 @@ async def activate_checkin(tournament: Tournament, interaction: discord.Interact
     await interaction.followup.send(f"Check-in system has been activated!")
 
 async def deactivate_checkin(tournament: Tournament, interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+    
     reserves_copy = tournament.reserves.copy()
     for _ in reserves_copy: # Move all reserves to players
         await move_reserve_to_player(tournament)
@@ -604,8 +606,5 @@ async def deactivate_checkin(tournament: Tournament, interaction: discord.Intera
     await cancel_scheduled_checkin(tournament.id)
     tournament.save()
     await update_tournament_embeds(tournament, interaction)
-    if interaction.response.is_done():
-        await interaction.followup.send(f"Check-in system has been deactivated.")
-    else:
-        await interaction.response.send_message(f"Check-in system has been deactivated.")
+    await interaction.followup.send(f"Check-in system has been deactivated.")
     return True
