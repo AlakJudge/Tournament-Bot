@@ -302,7 +302,11 @@ class Vote_Winner_Menu(discord.ui.Select):
                     match["vote_status"] = "admin_intervention"
                     self.tournament.save()
                     admin_role = discord.utils.get(interaction.guild.roles, name=self.tournament.admin_role)
-                    await interaction.followup.send(f"Votes are not unanimous. Admin intervention is required to determine the winner.\n{admin_role.mention}", ephemeral=False)
+                    await interaction.followup.send(
+                        f"Votes are not unanimous. Admin intervention is required to determine the winner.\n{admin_role.mention}", 
+                        ephemeral=False,
+                        allowed_mentions=discord.AllowedMentions(roles=True)
+                        )
             else:
                 self.tournament.save()
                 await interaction.followup.send(
