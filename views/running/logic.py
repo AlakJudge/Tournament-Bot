@@ -142,8 +142,12 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
             "id": match_id,
             "players": [],
             "winners": [],
+            "votes": {},
+            "have_voted": [],
+            "vote_status": "pending",
             "thread_id": thread.id,
             "thread_msg_id": None, # Will be set later when the thread message is sent
+            "is_bye": False
         }
 
         for _ in range(game):

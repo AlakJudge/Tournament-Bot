@@ -67,8 +67,12 @@ class Tournament_Running_View(discord.ui.View):
             "id": new_match_id,
             "players": [],
             "winners": [],
+            "votes": {},
+            "have_voted": [],
+            "vote_status": "pending",
             "thread_id": thread.id,
-            "thread_msg_id": None
+            "thread_msg_id": None,
+            "is_bye": False
         }
 
         if not self.tournament.thread_msg:

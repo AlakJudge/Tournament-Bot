@@ -13,7 +13,11 @@ class Start_Match_View(discord.ui.View):
         self.tournament: Tournament = tournament
         
         # Build buttons per-instance with a match_id in each custom_id field to avoid conflicts with other matches
-        set_winner_button = discord.ui.Button(label="🏅 Set Winner", style=discord.ButtonStyle.green, custom_id=f"set_winner_button_{match_id}")
+        vote_winner_button = discord.ui.Button(label="🏆 Vote Winner", style=discord.ButtonStyle.green, custom_id=f"vote_winner_button_{match_id}")
+        vote_winner_button.callback = self.vote_winner
+        self.add_item(vote_winner_button)
+
+        set_winner_button = discord.ui.Button(label="🏅 Set Winner (Admin)", style=discord.ButtonStyle.green, custom_id=f"set_winner_button_{match_id}")
         set_winner_button.callback = self.set_winner
         self.add_item(set_winner_button)
         
@@ -32,6 +36,20 @@ class Start_Match_View(discord.ui.View):
         ready_check_button = discord.ui.Button(label="✅ Ready Check", style=discord.ButtonStyle.green, custom_id=f"ready_check_button_{match_id}")
         ready_check_button.callback = self.ready_up
         self.add_item(ready_check_button)
+
+    async def vote_winner(self, interaction: discord.Interaction):
+        # Check if the user has the admin role or is a server admin
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+
+        self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id) # update tournament info
+
+        vote_winner_view = Vote_Winner_View(self.tournament, self.match_id)
+        await interaction.response.send_message(
+            f"Vote for the winner of the match.\n *Vote must be unanimous, otherwise Admin intervention will be necessary.*", 
+            view=vote_winner_view, 
+            ephemeral=True
+            )
 
     async def set_winner(self, interaction: discord.Interaction):
         # Check if the user has the admin role or is a server admin
@@ -216,6 +234,86 @@ class Transfer_Modal(discord.ui.Modal):
         else:
             await interaction.response.send_message(f"Failed to add {player} to Match {new_match_id}.", ephemeral=True)
 
+class Vote_Winner_View(discord.ui.View):
+    def __init__(self, tournament, match_id):
+        super().__init__(timeout=None)
+        self.add_item(Vote_Winner_Menu(tournament, match_id))
+        
+class Vote_Winner_Menu(discord.ui.Select):
+    def __init__(self, tournament:Tournament, match_id):
+            self.tournament = tournament
+            self.match_id = match_id
+    
+            # Iterate through and find the corresponding match
+            match = next(m for m in self.tournament.matches if m["id"] == self.match_id)
+            
+            options = [                
+                discord.SelectOption(
+                    label=player,
+                    description=f"Vote for {player} as the winner of the match."
+                )
+                for player in match["players"]
+            ]      
+    
+            super().__init__(
+                placeholder="Vote for the winner of the match.", 
+                min_values=1, 
+                max_values=1,
+                options=options)
+            
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True) 
+        async with tournament_lock:
+            self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
+            
+            voter = interaction.user.name
+            match = next(m for m in self.tournament.matches if m["id"] == self.match_id)
+            selected_player = self.values[0]
+            selected_player_mention = get_user_safe(interaction.guild, selected_player).mention
+
+            if not voter in match["have_voted"]:  # Check if the voter has already voted
+                match["have_voted"].append(voter)
+                match["votes"][selected_player] = match["votes"].get(selected_player, 0) + 1
+            else:
+                await interaction.followup.send(f"You have already voted.", ephemeral=True)
+                return
+            
+            resolved_match = None
+            
+            await interaction.followup.send(
+                    f"{interaction.user.mention} has voted for {selected_player_mention}.", 
+                    ephemeral=False, 
+                    allowed_mentions=discord.AllowedMentions(users=False)
+                )
+            
+            # Check if all players have voted
+            if len(match["have_voted"]) == len(match["players"]):
+                # Check if all votes are unanimous
+                if len(set(match["votes"].values())) == 1 and list(match["votes"].values())[0] == len(match["players"]):
+                    winner = selected_player
+                    match["winners"] = [winner]
+                    match["vote_status"] = "unanimous"
+                    self.tournament.save()
+                    winner_mention = get_user_safe(interaction.guild, winner).mention
+                    await interaction.followup.send(f"All players have voted.\n\n## 🎉 The winner of the match is {winner_mention}.", ephemeral=False)
+                    resolved_match = match
+                else:
+                    # Votes are not unanimous, admin intervention required
+                    match["vote_status"] = "admin_intervention"
+                    self.tournament.save()
+                    admin_role = discord.utils.get(interaction.guild.roles, name=self.tournament.admin_role)
+                    await interaction.followup.send(f"Votes are not unanimous. Admin intervention is required to determine the winner.\n{admin_role.mention}", ephemeral=False)
+            else:
+                self.tournament.save()
+                await interaction.followup.send(
+                    f"Waiting for all players to vote...", 
+                    ephemeral=False, 
+                    allowed_mentions=discord.AllowedMentions(users=False)
+                    )
+                
+        if resolved_match is not None:
+            await tournament_progression_check(self.tournament, interaction, match)
+            
 class Select_Winner_View(discord.ui.View):    
     def __init__(self, tournament, match_id):
         super().__init__(timeout=None)
@@ -255,7 +353,7 @@ class Select_Winner_Menu(discord.ui.Select):
             winners = [get_user_safe(interaction.guild, value) for value in self.values]
             mentions = ", ".join(winner.mention for winner in winners)
 
-            await interaction.response.send_message(f"## Winners of this match: {mentions}")
+            await interaction.response.send_message(f"## 🎉 Winners of this match: {mentions}")
 
             # Iterate through and find the corresponding match
             match = next(m for m in self.tournament.matches if m["id"] == self.match_id)
@@ -263,18 +361,7 @@ class Select_Winner_Menu(discord.ui.Select):
             self.tournament.save()
             
         # Handle tournament progression logic
-        if self.tournament.curr_num_matches == 1:
-            async with tournament_lock:
-                self.tournament.set_tournament_winner(", ".join(match["winners"]))
-                self.tournament.save()
-            await run_tournament(self.tournament, interaction)
-        else:
-            # Get tournament channel object
-            tournament_channel = discord.utils.get(interaction.guild.text_channels, id=self.tournament.tournament_channel_id)
-            # Check if all round winners have been selected
-            if all_winners_selected(self.tournament):
-                await send_round_winners(interaction, self.tournament)
-                await tournament_channel.send("## We're ready for the next round! :fire:")
+        await tournament_progression_check(self.tournament, interaction, match)
 
         # Disable to prevent multiple winners
         self.disabled = True
@@ -284,6 +371,19 @@ class Select_Winner_Menu(discord.ui.Select):
                 if isinstance(child, discord.ui.Select):
                     child.disabled = True
             await interaction.message.edit(view=self.view)
+
+async def tournament_progression_check(tournament: Tournament, interaction: discord.Interaction, match: dict):
+    if tournament.curr_num_matches == 1:
+        async with tournament_lock:
+            tournament.set_tournament_winner(", ".join(match["winners"]))
+            tournament.save()
+        await run_tournament(tournament, interaction)
+    else:
+        tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
+        # Check if all round winners have been selected
+        if all_winners_selected(tournament):
+            await send_round_winners(interaction, tournament)
+            await tournament_channel.send("## We're ready for the next round! :fire:")
 
 class Ready_Check_View(discord.ui.View):    
     def __init__(self):

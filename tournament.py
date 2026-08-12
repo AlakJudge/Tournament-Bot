@@ -3,7 +3,9 @@ from db import *
 class Tournament:
     def __init__(self, id, name, game, date, time, date_time, prize, image=None, notification_intervals=None, checkin=None, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
                  reg_channel=None, reg_msg_id=None, admin_msg_channel_id=None, admin_msg_id=None, owner=None, tournament_channel_id=None, tournament_channel_msg_id=None, 
-                 participants_channel_id=None, reserves_thread_id=None, curr_num_matches=None, players=None, checked_in=None, late_checkin=None, reserves=None, tournament_winner=None, matches=None, guild_id=None, archived=False):
+                 participants_channel_id=None, reserves_thread_id=None, curr_num_matches=None, players=None, checked_in=None, late_checkin=None, reserves=None, tournament_winner=None, matches=None, guild_id=None, archived=False, 
+                 async_config=None, bye_history=None
+                 ):
         self.id = id
         self.reg_channel = reg_channel
         self.reg_msg_id = reg_msg_id
@@ -38,6 +40,14 @@ class Tournament:
         self.tournament_winner = tournament_winner or ""
         self.guild_id = guild_id
         self.archived = archived
+        self.async_config = async_config or {
+            "is_async": False,
+            "max_players_per_match": None,
+            "min_players_per_match": None,
+            "round_deadline_seconds": None,
+            "match_deadline_seconds": None,
+        }
+        self.bye_history = bye_history or {}
 
     # Set registration channel
     def set_reg_channel(self, reg_channel):
@@ -214,7 +224,9 @@ class Tournament:
             tournament_winner=data.get("tournament_winner", ""),
             matches=data.get("matches", []),
             guild_id=data.get("guild_id"),
-            archived=data.get("archived", False)
+            archived=data.get("archived", False),
+            async_config=data.get("async_config", {}),
+            bye_history=data.get("bye_history", {})
         )
 
     def to_dict(self):
@@ -253,5 +265,7 @@ class Tournament:
             "tournament_winner": self.tournament_winner,
             "matches": self.matches,
             "guild_id": self.guild_id,
-            "archived": self.archived
+            "archived": self.archived,
+            "async_config": self.async_config,
+            "bye_history": self.bye_history
     }
