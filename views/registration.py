@@ -72,10 +72,11 @@ class Reg_Msg_Modal(discord.ui.Modal):
         self.tournament = tournament
         self.type = type
         self.add_item(discord.ui.InputText(
-            label="Enter a Registration Message (optional)", 
-            style=discord.InputTextStyle.paragraph, 
+            label="Enter a Registration Message (optional)",
+            style=discord.InputTextStyle.paragraph,
             placeholder="Message...",
-            required=False))
+            required=False,
+            max_length=2000))
 
     async def callback(self, interaction: discord.Interaction):
         msg_content = self.children[0].value
@@ -86,10 +87,20 @@ class Reg_Msg_Modal(discord.ui.Modal):
         if self.type == "edit":
             # Fetch registration message and edit it 
             old_msg_id = self.tournament.reg_msg_id
-            message = await reg_channel.fetch_message(old_msg_id)
+            try:
+                message = await reg_channel.fetch_message(old_msg_id)
+            except Exception as e:
+                await interaction.response.send_message(f"Error occurred while fetching registration message: {e}", ephemeral=True)
+                return
+
+            try:
+                await message.edit(content=msg_content, view=registration_view, embed=embed)
+            except Exception as e:
+                await interaction.response.send_message(f"Error occurred while editing registration message: {e}", ephemeral=True)
+                return
             
             await message.edit(content=msg_content, view=registration_view, embed=embed)
-            await reg_channel.send(f"Registration message for '{self.tournament.name}' updated successfully.", delete_after=2)
+            await interaction.response.send_message(f"Registration message for '{self.tournament.name}' updated successfully.", ephemeral=True)
         else:
             # Send a new message
             msg = await reg_channel.send(content=msg_content, embed=embed, view=registration_view)
