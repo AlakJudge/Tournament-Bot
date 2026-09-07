@@ -38,10 +38,6 @@ class Start_Match_View(discord.ui.View):
         self.add_item(ready_check_button)
 
     async def vote_winner(self, interaction: discord.Interaction):
-        # Check if the user has the admin role or is a server admin
-        if not await check_tournament_admin(interaction, self.tournament):
-            return
-
         self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id) # update tournament info
 
         vote_winner_view = Vote_Winner_View(self.tournament, self.match_id)
