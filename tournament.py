@@ -139,6 +139,12 @@ class Tournament:
 
     def get_checkin_status(self):
         return self.checkin.get("status", False)
+    
+    def activate_async_mode(self):
+        self.async_config["is_async"] = True
+        
+    def deactivate_async_mode(self):
+        self.async_config["is_async"] = False
 
     # Restart the tournament with basic info and participants
     def restart(self, restart_games_only=False):
