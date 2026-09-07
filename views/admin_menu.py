@@ -149,7 +149,43 @@ class T_Admin(discord.ui.View):
         embed = T_Admin.get_embed(self)        
         await interaction.message.edit(embed=embed, view=self)
 
+    @discord.ui.button(label="⏳ Activate Async Mode", style = discord.ButtonStyle.green, custom_id="async_mode_button")
+    async def async_mode(self, button: discord.ui.Button, interaction: discord.Interaction):
+        if not await check_tournament_admin(interaction, self.tournament):
+            return
+        
+        # Update tournament data
+        self.tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
 
+        if not self.tournament.async_config.get("is_async"):
+            from views.running.async_logic import setup_async_mode
+            
+            setup_modal = setup_async_mode(self.tournament)
+            await interaction.response.send_modal(setup_modal)
+            await setup_modal.wait()
+            
+            if not getattr(setup_modal, "submitted", False):
+                await interaction.followup.send("Async mode setup timed out. Nothing was saved.", ephemeral=True)
+                return
+
+            self.tournament.activate_async_mode()
+            self.tournament.save()
+            await interaction.followup.send(f"Async Mode has been activated for ({self.tournament.id}) '{self.tournament.name}'.", ephemeral=True)
+            
+            button.label = "⛔ Deactivate Async Mode"
+            button.style = discord.ButtonStyle.red
+            
+        else:
+            self.tournament.deactivate_async_mode()
+            self.tournament.save()
+            await interaction.response.send_message(f"Async Mode has been deactivated for ({self.tournament.id}) '{self.tournament.name}'.", ephemeral=True)
+            
+            button.label = "⏳ Activate Async Mode"
+            button.style = discord.ButtonStyle.green
+            
+        embed = T_Admin.get_embed(self)
+        await interaction.message.edit(embed=embed, view=self)
+    
     # Edit Tournament button
     @discord.ui.button(label="📄 Edit Info", style = discord.ButtonStyle.blurple, custom_id="edit_info_button")
     async def edit_tournament(self, button: discord.ui.Button, interaction: discord.Interaction):
