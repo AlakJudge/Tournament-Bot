@@ -107,7 +107,7 @@ class Reg_Msg_Modal(discord.ui.Modal):
             self.tournament.reg_msg_id = msg.id
             self.tournament.save()
 
-            await interaction.response.send_message(f"Registration opened for '{self.tournament.name}'!", delete_after=2)
+            await interaction.response.send_message(f"Registration opened for '{self.tournament.name}'!", ephemeral=True, delete_after=2)
 
 # Logic for Kick button
 class kick_view(discord.ui.View):
