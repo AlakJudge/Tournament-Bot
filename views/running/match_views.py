@@ -376,7 +376,8 @@ async def tournament_progression_check(tournament: Tournament, interaction: disc
     # If async tournament, check if all winners have been selected and run async round automatically
     if tournament.async_config.get("is_async"):
         if all_winners_selected(tournament):
-            from views.running.async_logic import run_async_round
+            from views.running.async_logic import run_async_round, cancel_round_deadline
+            await cancel_round_deadline(tournament.id)
             await run_async_round(tournament, interaction)
         return
     
