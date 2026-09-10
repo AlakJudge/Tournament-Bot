@@ -45,7 +45,7 @@ class Tournament:
             "max_players_per_match": None,
             "min_players_per_match": None,
             "round_deadline_seconds": None,
-            "match_deadline_seconds": None,
+            "round_deadline_at": None
         }
         self.bye_history = bye_history or {}
 
