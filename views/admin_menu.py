@@ -119,7 +119,12 @@ class T_Admin(discord.ui.View):
     async def t_run(self, button: discord.ui.Button, interaction: discord.Interaction):  
         if not await check_tournament_admin(interaction, self.tournament):
             return 
-        await run_tournament(self.tournament, interaction)    
+        
+        if self.tournament.async_config.get("is_async"):
+            from views.running.async_logic import run_async_round
+            await run_async_round(self.tournament, interaction)     
+        else:
+            await run_tournament(self.tournament, interaction)    
 
     # Start Tournament button
     @discord.ui.button(label="✅ Activate Check-in", style = discord.ButtonStyle.green, custom_id="checkin_button")
