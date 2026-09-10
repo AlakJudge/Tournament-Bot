@@ -1,3 +1,4 @@
+import time
 import discord
 import os
 from tournament import Tournament
@@ -45,6 +46,12 @@ async def on_ready():
                     tournament, dummy_interaction,
                     [tournament.checkin["reminder"], tournament.checkin["start"], tournament.checkin["duration"]]
                     )
+            
+            # Reschedule async round-deadline sweep lost on restart
+            if tournament.async_config.get("is_async") and tournament.async_config.get("round_deadline_at"):
+                remaining = tournament.async_config["round_deadline_at"] - time.time()
+                from views.running.async_logic import schedule_round_deadline
+                await schedule_round_deadline(tournament, dummy_interaction, delay=remaining)
     
     # Force sync slash commands
     await bot.sync_commands()
