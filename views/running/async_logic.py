@@ -1,5 +1,7 @@
 from random import shuffle
 from math import ceil
+import asyncio
+import time
 
 import discord
 
@@ -7,6 +9,8 @@ from tournament import Tournament
 from utils.helpers import parse_time_string
 from utils.debug import  get_mention_safe
 from views.running.logic import get_round_winners, set_brackets
+
+scheduled_round_deadline_tasks = {} 
 
 class setup_async_mode(discord.ui.Modal):
     def __init__(self, tournament:Tournament) -> None:
@@ -16,7 +20,6 @@ class setup_async_mode(discord.ui.Modal):
         self.add_item(discord.ui.InputText(label="Max players per game?", placeholder="Cannot be higher than 6."))
         self.add_item(discord.ui.InputText(label="Minimum players in each game?", placeholder=f"Cannot be lower than 2 and cannot be higher than the max players per game."))
         self.add_item(discord.ui.InputText(label="Time limit per round?", placeholder="e.g., '2h', '5m', '30s'"))
-        self.add_item(discord.ui.InputText(label="Time limit per game?", placeholder="e.g., '2h', '5m', '30s'"))
 
     async def callback(self, interaction: discord.Interaction):
         try:
@@ -34,11 +37,6 @@ class setup_async_mode(discord.ui.Modal):
         if self.round_deadline_seconds is None:
             await interaction.response.send_message("Invalid time format for 'Time limit per round'. Use e.g. '2h', '5m', '30s'.", ephemeral=True)
             return
-        
-        self.match_deadline_seconds = parse_time_string(self.children[3].value)
-        if self.match_deadline_seconds is None:
-            await interaction.response.send_message("Invalid time format for 'Time limit per game'. Use e.g. '2h', '5m', '30s'.", ephemeral=True)
-            return
 
         self.submitted = True
         
@@ -46,16 +44,14 @@ class setup_async_mode(discord.ui.Modal):
         self.tournament.async_config = {
             "min_players_per_match": self.min_players_per_match,
             "max_players_per_match": self.max_players_per_match,
-            "round_deadline_seconds": self.round_deadline_seconds,
-            "match_deadline_seconds": self.match_deadline_seconds
+            "round_deadline_seconds": self.round_deadline_seconds
         }
 
         await interaction.response.send_message(
             f"You've selected:\n"
             f"- Max Players per Game: {self.max_players_per_match}\n"
             f"- Min Players per Game: {self.min_players_per_match}\n"
-            f"- Time Limit per Round: {self.children[2].value}\n"
-            f"- Time Limit per Game: {self.children[3].value}", ephemeral=True)
+            f"- Time Limit per Round: {self.children[2].value}", ephemeral=True)
 
 # Keep table count within the range of min and max players per game
 def valid_table_count_range(n: int, min_size: int, max_size: int):
@@ -97,16 +93,14 @@ def distribute_evenly(players: list[str], num_tables: int) -> list[int]:
     return games
 
 async def run_async_round(tournament: Tournament, interaction: discord.Interaction):
-    tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild_id, tournament.id)
+    tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
     tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
 
     pool = tournament.players if tournament.round == 0 else get_round_winners(tournament)
     
-    participant_role = discord.utils.get(interaction.guild.roles, id=tournament.participants_role)
-    
-    if tournament.round == 0:
-        await interaction.response.send_message(f"Starting async tournament '{tournament.name}' with {len(pool)} participants...", ephemeral=True)
-    
+    participant_role = discord.utils.get(interaction.guild.roles, name=tournament.participants_role)
+    if  not interaction.response.is_done():
+        await interaction.response.defer(ephemeral=True)
     await tournament_channel.send(f"Running round {tournament.round + 1} with {len(pool)} participants...", delete_after=10)
     
     if len(pool) <= 1:
@@ -154,7 +148,41 @@ async def run_async_round(tournament: Tournament, interaction: discord.Interacti
         
     tournament.curr_num_matches = num_tables + bye_count
     tournament.save()
+    await schedule_round_deadline(tournament, interaction)
             
             
-            
-       
+async def schedule_round_deadline(tournament: Tournament, interaction: discord.Interaction, delay: float = None):
+    await cancel_round_deadline(tournament.id) 
+    
+    if delay is None:
+        delay = tournament.async_config["round_deadline_seconds"]
+        tournament.async_config["round_deadline_at"] = time.time() + delay
+        tournament.save()
+        
+    task = asyncio.create_task(round_deadline_sweep(tournament, interaction, delay, tournament.round))
+    scheduled_round_deadline_tasks[tournament.id] = task
+    
+async def cancel_round_deadline(tournament_id):
+    task = scheduled_round_deadline_tasks.get(tournament_id, None)
+    if task:
+        task.cancel()
+        
+async def round_deadline_sweep(tournament: Tournament, interaction: discord.Interaction, delay: float, round_to_check: int):
+    await asyncio.sleep(delay)
+    
+    tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
+    if tournament.round != round_to_check:
+        return  # Round has changed, no action needed
+    
+    round_matches = [m for m in tournament.matches if m["id"].startswith(f"R{tournament.round}-")]
+    pending = [m for m in round_matches if not m["winners"]]
+    if not pending:
+        return  # All matches have winners, no action needed
+    
+    tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
+    admin_role = discord.utils.get(interaction.guild.roles, name=tournament.admin_role)
+    pending_list = "\n".join(f"- **{m['id']}**: {', '.join(m['players'])}" for m in pending)
+    await tournament_channel.send(
+        f"⏰ {admin_role.mention} Round {round_to_check}'s deadline has passed with matches still unresolved:\n\n"
+        f"{pending_list}\n\nPlease set winners manually using each match thread's [🏅 Set Winner button]."
+    )
