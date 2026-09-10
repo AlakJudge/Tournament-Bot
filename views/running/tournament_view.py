@@ -22,7 +22,11 @@ class Tournament_Running_View(discord.ui.View):
         if not await check_tournament_admin(interaction, self.tournament):
             return
         
-        await run_tournament(self.tournament, interaction) # Start the next round of the tournament
+        if self.tournament.async_config.get("is_async"):
+            from views.running.async_logic import run_async_round
+            await run_async_round(self.tournament, interaction)
+        else:
+            await run_tournament(self.tournament, interaction)
 
         self.tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id) # Update tournament data
 

@@ -64,7 +64,16 @@ class set_details(discord.ui.Modal):
         await interaction.response.send_message(f"You've selected:\n- Game Size: {self.game_size}\n- Min Games: {self.min_games}", ephemeral=True)
        
 # Function with the logic to divide players into brackets, create the threads and allocate the players respectively
-async def set_brackets(interaction: discord.Interaction, tournament:Tournament, game_size: int, min_games: int, t_players:list = None):
+async def set_brackets(
+    interaction: discord.Interaction, 
+    tournament:Tournament, 
+    game_size: int = None, 
+    min_games: int = None, 
+    t_players:list = None, 
+    precomputed_games: list[int] = None,
+    is_final_round: bool = None
+    ):
+    
     players = []
     if not t_players:
         t_players = tournament.players
@@ -76,19 +85,21 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
         players.append(p)
 
     total_players = len(players)
-
-    # Approximate number of games
-    number_of_games = ceil(total_players / game_size)
-    while number_of_games < min_games:
-        number_of_games += 1
-    # Even distribution of players per game
-    players_per_game = total_players // number_of_games
-    remainder = total_players % number_of_games
-    # Set the number of players in each game
-    games = [players_per_game] * number_of_games
-    # Distribute remainder of players
-    for i in range(remainder):
-        games[i] += 1
+    
+    if precomputed_games is not None:
+        games = precomputed_games
+    else:
+        number_of_games = ceil(total_players / game_size)
+        while number_of_games < min_games:
+            number_of_games += 1
+        # Even distribution of players per game
+        players_per_game = total_players // number_of_games
+        remainder = total_players % number_of_games
+        # Set the number of players in each game
+        games = [players_per_game] * number_of_games
+        # Distribute remainder of players
+        for i in range(remainder):
+            games[i] += 1
     
     p_index = 0
     guild: discord.Guild = interaction.guild
@@ -116,17 +127,17 @@ async def set_brackets(interaction: discord.Interaction, tournament:Tournament, 
         # Give it to tournament owner
         admin_role = await interaction.guild.create_role(name=tournament.admin_role)
         await interaction.guild.get_member(tournament.owner).add_roles(admin_role)
-
+            
+    if is_final_round is None:
+        is_final_round = len(games) == 1
+        
     # Distribute players evenly into matches
     for index, game in enumerate(games):
         # Set match id
         match_id = f"R{tournament.round}-G{index+1}"
         
         # Create threads for each match and name it final round if it's the last round
-        if len(games) == 1:
-            thread_name = f"🔥Final Round🔥"
-        else:
-            thread_name = f"Round {tournament.round} - Game {index+1}"
+        thread_name = "🔥Final Round🔥" if is_final_round else f"Round {tournament.round} - Game {index+1}"
 
         thread = await tournament_channel.create_thread(
             name=thread_name, 

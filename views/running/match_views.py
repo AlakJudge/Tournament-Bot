@@ -373,6 +373,13 @@ class Select_Winner_Menu(discord.ui.Select):
             await interaction.message.edit(view=self.view)
 
 async def tournament_progression_check(tournament: Tournament, interaction: discord.Interaction, match: dict):
+    # If async tournament, check if all winners have been selected and run async round automatically
+    if tournament.async_config.get("is_async"):
+        if all_winners_selected(tournament):
+            from views.running.async_logic import run_async_round
+            await run_async_round(tournament, interaction)
+        return
+    
     if tournament.curr_num_matches == 1:
         async with tournament_lock:
             tournament.set_tournament_winner(", ".join(match["winners"]))
