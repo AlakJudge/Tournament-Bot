@@ -17,42 +17,46 @@ intents.members = True
 bot = discord.Bot(intents=intents)
 version = "v2.2"
 
+startup_done = False
 register_commands(bot, version)
 
 @bot.event
 async def on_ready():
+    global startup_done
     print(f"{bot.user} is online - {version}")
-    # Restore all views when the bot is ready
-    try:
-        await restore_all_views(bot)
-    except Exception as e:
-        print(f"Failed to restore views: {e}")
-
-    # Iterate through each guild the bot is in and reschedule existing notifications for tournaments
-    for guild in bot.guilds:
-        dummy_interaction = DummyInteraction(guild)
-        tournaments = Tournament.load_all_tournaments(guild.id)
-        for tournament in tournaments:
-            if hasattr(tournament, "notification_intervals"):
-                await schedule_custom_notifications(
-                    tournament, dummy_interaction,
-                    [i["seconds"] for i in tournament.notification_intervals],
-                    startup=True
-                    )
-
-            # Reschedule check-in reminder/start/end tasks lost on restart.
-            if tournament.checkin.get("status") and not tournament.checkin.get("ended"):
-                await schedule_checkin(
-                    tournament, dummy_interaction,
-                    [tournament.checkin["reminder"], tournament.checkin["start"], tournament.checkin["duration"]]
-                    )
-            
-            # Reschedule async round-deadline sweep lost on restart
-            if tournament.async_config.get("is_async") and tournament.async_config.get("round_deadline_at"):
-                remaining = tournament.async_config["round_deadline_at"] - time.time()
-                from views.running.async_logic import schedule_round_deadline
-                await schedule_round_deadline(tournament, dummy_interaction, delay=remaining)
     
+    # Restore all views when the bot is ready
+    if startup_done is False: 
+        try:
+            await restore_all_views(bot)
+        except Exception as e:
+            print(f"Failed to restore views: {e}")
+        
+        # Iterate through each guild the bot is in and reschedule existing notifications for tournaments
+        for guild in bot.guilds:
+            dummy_interaction = DummyInteraction(guild)
+            tournaments = Tournament.load_all_tournaments(guild.id)
+            for tournament in tournaments:
+                if hasattr(tournament, "notification_intervals"):
+                    await schedule_custom_notifications(
+                        tournament, dummy_interaction,
+                        [i["seconds"] for i in tournament.notification_intervals],
+                        startup=True
+                        )
+
+                # Reschedule check-in reminder/start/end tasks lost on restart.
+                if tournament.checkin.get("status") and not tournament.checkin.get("ended"):
+                    await schedule_checkin(
+                        tournament, dummy_interaction,
+                        [tournament.checkin["reminder"], tournament.checkin["start"], tournament.checkin["duration"]]
+                        )
+                
+                # Reschedule async round-deadline sweep lost on restart
+                if tournament.async_config.get("is_async") and tournament.async_config.get("round_deadline_at"):
+                    remaining = tournament.async_config["round_deadline_at"] - time.time()
+                    from views.running.async_logic import schedule_round_deadline
+                    await schedule_round_deadline(tournament, dummy_interaction, delay=remaining)
+        startup_done = True
     # Force sync slash commands
     await bot.sync_commands()
     
