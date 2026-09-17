@@ -4,7 +4,7 @@ class Tournament:
     def __init__(self, id, name, game, date, time, date_time, prize, image=None, notification_intervals=None, checkin=None, player_cap=None, thread_msg=None, reg_status="Closed", admin_role=None, participants_role=None, round=0, 
                  reg_channel=None, reg_msg_id=None, admin_msg_channel_id=None, admin_msg_id=None, owner=None, tournament_channel_id=None, tournament_channel_msg_id=None, 
                  participants_channel_id=None, reserves_thread_id=None, curr_num_matches=None, players=None, checked_in=None, late_checkin=None, reserves=None, tournament_winner=None, matches=None, guild_id=None, archived=False, 
-                 async_config=None, bye_history=None
+                 async_config=None, bye_history=None, stats_recorded=False
                  ):
         self.id = id
         self.reg_channel = reg_channel
@@ -48,6 +48,7 @@ class Tournament:
             "round_deadline_at": None
         }
         self.bye_history = bye_history or {}
+        self.stats_recorded = stats_recorded
 
     # Set registration channel
     def set_reg_channel(self, reg_channel):
@@ -232,7 +233,8 @@ class Tournament:
             guild_id=data.get("guild_id"),
             archived=data.get("archived", False),
             async_config=data.get("async_config", {}),
-            bye_history=data.get("bye_history", {})
+            bye_history=data.get("bye_history", {}),
+            stats_recorded=data.get("stats_recorded", {})
         )
 
     def to_dict(self):
@@ -273,5 +275,6 @@ class Tournament:
             "guild_id": self.guild_id,
             "archived": self.archived,
             "async_config": self.async_config,
-            "bye_history": self.bye_history
+            "bye_history": self.bye_history,
+            "stats_recorded": self.stats_recorded
     }
