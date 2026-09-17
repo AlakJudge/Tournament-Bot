@@ -386,7 +386,7 @@ async def tournament_progression_check(tournament: Tournament, interaction: disc
             tournament.set_tournament_winner(", ".join(match["winners"]))
             tournament.save()
         from utils.leaderboard import record_tournament_conclusion
-        await record_tournament_conclusion(tournament, match)
+        await record_tournament_conclusion(tournament, match, interaction)
         await run_tournament(tournament, interaction)
     else:
         tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
@@ -509,7 +509,7 @@ class Set_Winner_Modal(discord.ui.Modal):
                     tournament.set_tournament_winner(player)
                     tournament.save()
                 from utils.leaderboard import record_tournament_conclusion
-                await record_tournament_conclusion(tournament, winning_match)
+                await record_tournament_conclusion(tournament, winning_match, interaction)
                 await run_tournament(tournament, interaction)
             else:
                 # Fetch tournament channel object
