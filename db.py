@@ -56,13 +56,16 @@ def get_leaderboard_collection(guild_id):
 
 def record_leaderboard_result(guild_id, game_key, game_display, player, **increments):
     collection = get_leaderboard_collection(guild_id)
+    all_stats = ("wins", "finals", "tournaments_played")
+    set_on_insert = {stat: 0 for stat in all_stats if stat not in increments}
+    
+    update = {"$inc": increments, "$set": {"game_display": game_display}}
+    if set_on_insert:
+        update["$setOnInsert"] = set_on_insert
+        
     collection.update_one(
         {"game_key": game_key, "player": player},
-        {
-            "$inc": increments,
-            "$set": {"game_display": game_display},
-            "$setOnInsert": {"wins": 0, "finals": 0, "tournaments_played": 0}
-        },
+        update,
         upsert=True
     )
     
