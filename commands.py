@@ -232,6 +232,65 @@ def register_commands(bot, version):
             # Register the player
             await register_player_to_tournament(tournament, player, ctx.interaction)
 
+    async def leaderboard_game_autocomplete(ctx: discord.AutocompleteContext):
+        from db import find_leaderboard_games
+        games = find_leaderboard_games(ctx.interaction.guild.id)
+        return [g for g in games if ctx.value.lower() in g.lower()][:25]
+
+    @bot.slash_command(name="leaderboard", description="Show the leaderboard for a game")
+    async def leaderboard(
+        ctx: discord.ApplicationContext,
+        game: str = discord.Option(
+            description="Which game's leaderboard to show", 
+            autocomplete=leaderboard_game_autocomplete
+        )
+    ):
+        from db import find_leaderboard
+        
+        entries = find_leaderboard(ctx.guild_id, game.strip().lower())
+        if not entries:
+            await ctx.respond(f"No leaderboard data yet for '{game}'.", ephemeral=True)
+            return
+            
+        embed = discord.Embed(title=f"🏆 {entries[0]['game_display']} Leaderboard", color=discord.Color.gold())
+        for i, entry in enumerate(entries, start=1):
+            embed.add_field(
+                name=f"{i}. {entry['player']}",
+                value=f"Championships: {entry.get('wins', 0)} | Finals: {entry.get('finals', 0)} | Tournaments Played: {entry.get('tournaments_played', 0)}",
+                inline=False
+            )
+        await ctx.respond(embed=embed)
+
+    @bot.slash_command(name="leaderboard_adjust", description="Manually adjust a player's leaderboard stats")
+    async def leaderboard_adjust(
+        ctx: discord.ApplicationContext,
+        game: str = discord.Option(
+            description="Which game's leaderboard", 
+            autocomplete=leaderboard_game_autocomplete),
+        player: discord.Member = discord.Option(
+            description="The player to adjust"),
+        stat: str = discord.Option(
+            description="Which stat to adjust",
+            choices=["wins", "finals", "tournaments_played"]),
+        amount: int = discord.Option(
+            description="Amount to add (use a negative number to subtract)")
+        ):
+        organizer_role = discord.utils.get(ctx.guild.roles, name="BGTB Organizer")
+        user: discord.Member = ctx.guild.get_member(ctx.user.id)
+        
+        if organizer_role not in user.roles and not user.guild_permissions.administrator:
+            await ctx.respond("Failed. You must have the 'BGTB Organizer' role to perform this action.", ephemeral=True)
+            return
+        
+        from db import adjust_leaderboard_stat
+        game_key = game.strip().lower()
+        result = adjust_leaderboard_stat(ctx.guild.id, game_key, game, player.name, stat, amount)
+        
+        if result is None:
+            await ctx.respond(f"{player.mention}'s entry for '{game}' reached zero across all stats and was removed.", ephemeral=True)
+        else:
+            await ctx.respond(f"Updated {player.mention}'s '{game}' stats: Championships {result['wins']}, Finals {result['finals']}, Tournaments Played {result['tournaments_played']}", ephemeral=True)
+
     @bot.slash_command(name="help", description="Get help with the bot")
     async def help(ctx: discord.ApplicationContext):
         from views.help import HelpView
