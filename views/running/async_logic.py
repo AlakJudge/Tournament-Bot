@@ -111,7 +111,7 @@ async def run_async_round(tournament: Tournament, interaction: discord.Interacti
             tournament.save()
             if winning_match:
                 from utils.leaderboard import record_tournament_conclusion
-                await record_tournament_conclusion(tournament, winning_match)
+                await record_tournament_conclusion(tournament, winning_match, interaction)
             await tournament_channel.send(f"# The winner of '{tournament.name}' is {get_mention_safe(interaction.guild, tournament.tournament_winner)}! CONGRATULATIONS! :tada::tada:\n"
                                                 f"Thank you all {participant_role.mention}s for attending and being awesome. See you next time! :fire:")
         return
