@@ -6,7 +6,7 @@ import time
 import discord
 
 from tournament import Tournament
-from utils.helpers import parse_time_string
+from utils.helpers import parse_time_string, tournament_lock
 from utils.debug import  get_mention_safe
 from views.running.logic import get_round_winners, set_brackets
 
@@ -93,46 +93,54 @@ def distribute_evenly(players: list[str], num_tables: int) -> list[int]:
     return games
 
 async def run_async_round(tournament: Tournament, interaction: discord.Interaction):
-    tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
-    tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
-
-    pool = tournament.players if tournament.round == 0 else get_round_winners(tournament)
-    
-    participant_role = discord.utils.get(interaction.guild.roles, name=tournament.participants_role)
     if  not interaction.response.is_done():
         await interaction.response.defer(ephemeral=True)
-    await tournament_channel.send(f"Running round {tournament.round + 1} with {len(pool)} participants...", delete_after=10)
-    
-    if len(pool) <= 1:
-        if pool:
-            winning_match = next((m for m in tournament.matches
-                                    if m["id"].startswith(f"R{tournament.round}-") and pool[0] in m["winners"]), None)
-            tournament.set_tournament_winner(pool[0])
-            tournament.save()
-            if winning_match:
-                from utils.leaderboard import record_tournament_conclusion
-                await record_tournament_conclusion(tournament, winning_match, interaction)
-            await tournament_channel.send(f"# The winner of '{tournament.name}' is {get_mention_safe(interaction.guild, tournament.tournament_winner)}! CONGRATULATIONS! :tada::tada:\n"
-                                                f"Thank you all {participant_role.mention}s for attending and being awesome. See you next time! :fire:")
-        return
-    
-    tournament.next_round()
-            
-    max_size = tournament.async_config["max_players_per_match"]
-    min_size = tournament.async_config["min_players_per_match"]
-    bye_count, num_tables = compute_bye_count_and_table_count(len(pool), max_size, min_size)
-    
-    shuffle(pool)
-    bye_players = select_bye_players(pool, bye_count, tournament.bye_history)
-    remaining = [p for p in pool if p not in bye_players]
-    
-    games = distribute_evenly(remaining, num_tables)
+        
+    async with tournament_lock:
+        tournament: Tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
+        tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
+
+        pool = tournament.players if tournament.round == 0 else get_round_winners(tournament)
+        
+        participant_role = discord.utils.get(interaction.guild.roles, name=tournament.participants_role)
+        
+        if tournament.round == 0 and tournament.reg_status == "Open":
+            from views.registration import close_registration
+            await close_registration(interaction, tournament)
+            tournament = Tournament.load_tournament_by_id(interaction.guild.id, tournament.id)
+        
+        if len(pool) <= 1:
+            if pool:
+                winning_match = next((m for m in tournament.matches
+                                        if m["id"].startswith(f"R{tournament.round}-") and pool[0] in m["winners"]), None)
+                tournament.set_tournament_winner(pool[0])
+                tournament.save()
+                if winning_match:
+                    from utils.leaderboard import record_tournament_conclusion
+                    await record_tournament_conclusion(tournament, winning_match, interaction)
+                await tournament_channel.send(f"# The winner of '{tournament.name}' is {get_mention_safe(interaction.guild, tournament.tournament_winner)}! CONGRATULATIONS! :tada::tada:\n"
+                                                    f"Thank you all {participant_role.mention}s for attending and being awesome. See you next time! :fire:")
+            return
+        
+        tournament.next_round()
+                
+        max_size = tournament.async_config["max_players_per_match"]
+        min_size = tournament.async_config["min_players_per_match"]
+        bye_count, num_tables = compute_bye_count_and_table_count(len(pool), max_size, min_size)
+        
+        shuffle(pool)
+        bye_players = select_bye_players(pool, bye_count, tournament.bye_history)
+        remaining = [p for p in pool if p not in bye_players]
+        
+        games = distribute_evenly(remaining, num_tables)
+        is_final_round = (num_tables == 1 and bye_count == 0)
+
     await set_brackets(
         interaction, 
         tournament, 
         precomputed_games=games, 
         t_players=remaining, 
-        is_final_round=(num_tables == 1 and bye_count == 0)
+        is_final_round=is_final_round
         )
     
     # Bye entries are appended after set_brackets to ensure they are not included in the current round's matches
@@ -153,8 +161,9 @@ async def run_async_round(tournament: Tournament, interaction: discord.Interacti
         
     tournament.curr_num_matches = num_tables + bye_count
     tournament.save()
+        
     await schedule_round_deadline(tournament, interaction)
-            
+    await announce_round(tournament, interaction, tournament_channel, bye_players, is_final_round)        
             
 async def schedule_round_deadline(tournament: Tournament, interaction: discord.Interaction, delay: float = None):
     await cancel_round_deadline(tournament.id) 
@@ -191,3 +200,28 @@ async def round_deadline_sweep(tournament: Tournament, interaction: discord.Inte
         f"⏰ {admin_role.mention} Round {round_to_check}'s deadline has passed with matches still unresolved:\n\n"
         f"{pending_list}\n\nPlease set winners manually using each match thread's [🏅 Set Winner button]."
     )
+
+async def announce_round(tournament, interaction, tournament_channel, bye_players, is_final_round):
+    guild = interaction.guild
+    round_matches = [m for m in tournament.matches
+                     if m["id"].startswith(f"R{tournament.round}-") and not m.get("is_bye")]
+    
+    embed = discord.Embed(
+        title="🔥 Final Round" if is_final_round else f"📋 Round {tournament.round}",
+        description=f"{len(round_matches)} game(s) in play. Each has its own private thread, and you've been tagged in yours.",
+        color=discord.Color.orange()
+    )
+    for m in round_matches:
+        embed.add_field(name=m["id"], value=", ".join(get_mention_safe(guild, p) for p in m["players"]), inline=False)
+        
+    content = None
+    if bye_players:
+        byes = ", ".join(get_mention_safe(guild, p) for p in bye_players)
+        embed.add_field(name="🎟️ Bye, Advancing automatically", value=byes, inline=False)
+        content = f"🎟️ {byes}: you have a **bye** this round, so you advance without playing. Sit tight!"
+        
+    deadline = tournament.async_config.get("round_deadline_at")
+    if deadline:
+        embed.add_field(name="⏰ Round deadline", value=f"<t:{int(deadline)}:F> (<t:{int(deadline)}:R>)", inline=False)
+
+    await tournament_channel.send(content=content, embed=embed)
