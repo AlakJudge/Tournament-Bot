@@ -3,7 +3,7 @@ import asyncio
 
 from tournament import Tournament
 from utils.helpers import check_tournament_admin, tournament_lock
-from utils.debug import get_user_safe
+from utils.debug import get_user_safe, get_mention_safe
 from views.running.logic import run_tournament, add_player_to_match, remove_player_from_match, set_match_winner, all_winners_selected, send_round_winners
 
 class Start_Match_View(discord.ui.View):
@@ -265,7 +265,7 @@ class Vote_Winner_Menu(discord.ui.Select):
             voter = interaction.user.name
             match = next(m for m in self.tournament.matches if m["id"] == self.match_id)
             selected_player = self.values[0]
-            selected_player_mention = get_user_safe(interaction.guild, selected_player).mention
+            selected_player_mention = get_mention_safe(interaction.guild, selected_player)
 
             if not voter in match["have_voted"]:  # Check if the voter has already voted
                 match["have_voted"].append(voter)
