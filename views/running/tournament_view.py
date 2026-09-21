@@ -129,36 +129,10 @@ class Tournament_Running_View(discord.ui.View):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
             return
+        
+        from views.running.match_views import Ready_Check_Modal
+        await interaction.response.send_modal(Ready_Check_Modal(self.tournament))
 
-        # List to store view, thread, and match_players for each match
-        ready_check_data = []   
-
-        await interaction.response.defer()
-
-        # Prepare list of coroutines for ready_check
-        ready_check_coros = []
-        for match in self.tournament.matches:
-            thread = discord.utils.get(interaction.guild.threads, id=match["thread_id"])
-            if not thread.locked:
-                ready_check_coros.append(ready_check(interaction, self.tournament, match["id"]))
-
-        # Run all ready checks concurrently
-        ready_check_results = await asyncio.gather(*ready_check_coros)
-
-        # Collect results into ready_check_data
-        ready_check_data = [
-            (view, thread, match_players)
-            for (view, thread, match_players) in ready_check_results
-        ]
-
-        await interaction.followup.send("Ready check sent to all players.", ephemeral=True)
-
-        # Wait 5 mins, then tag all players not ready yet in each active thread
-        tasks = [
-            not_ready_forfeit(self.tournament, interaction, view, thread, match_players)
-            for view, thread, match_players in ready_check_data
-        ]
-        await asyncio.gather(*tasks)
 
     @discord.ui.button(label="⏳ Show Pending Matches", style=discord.ButtonStyle.blurple, custom_id="show_pending_matches_button")
     async def show_pending_matches(self, button: discord.ui.Button, interaction: discord.Interaction):
