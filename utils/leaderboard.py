@@ -34,9 +34,9 @@ async def record_tournament_conclusion(tournament: Tournament, winning_match: di
     tournament_channel = discord.utils.get(interaction.guild.text_channels, id=tournament.tournament_channel_id)
     if tournament_channel:
         embed = discord.Embed(title=f"📊 Leaderboard Updated — {tournament.game}", color=discord.Color.blurple())
-        embed.add_field(name="🥇 Championship | +5 points", value=", ".join(get_mention_safe(interaction.guild, p) for p in winners), inline=False)
+        embed.add_field(name="🥇 Championship", value=", ".join(get_mention_safe(interaction.guild, p) for p in winners), inline=False)
         if finalists:
-            embed.add_field(name="🥈 Reached the Final | +3 points", value=", ".join(get_mention_safe(interaction.guild, p) for p in finalists), inline=False)
+            embed.add_field(name="🥈 Reached the Final", value=", ".join(get_mention_safe(interaction.guild, p) for p in finalists), inline=False)
         if other_participants:
-            embed.add_field(name="✅ Participated | +1 points", value=", ".join(get_mention_safe(interaction.guild, p) for p in sorted(other_participants)), inline=False)
+            embed.add_field(name="✅ Participated", value=", ".join(get_mention_safe(interaction.guild, p) for p in sorted(other_participants)), inline=False)
         await tournament_channel.send(embed=embed)
