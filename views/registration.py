@@ -94,12 +94,11 @@ class Reg_Msg_Modal(discord.ui.Modal):
                 return
 
             try:
-                await message.edit(content=msg_content, view=registration_view, embed=embed)
+                await message.edit(content=msg_content, view=registration_view, embed=embed, allowed_mentions=discord.AllowedMentions(roles=True))
             except Exception as e:
                 await interaction.response.send_message(f"Error occurred while editing registration message: {e}", ephemeral=True)
                 return
             
-            await message.edit(content=msg_content, view=registration_view, embed=embed)
             await interaction.response.send_message(f"Registration message for '{self.tournament.name}' updated successfully.", ephemeral=True)
         else:
             # Send a new message
