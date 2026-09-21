@@ -2,15 +2,17 @@ import discord
 import asyncio
 
 from tournament import Tournament
-from utils.helpers import check_tournament_admin, tournament_lock
+from utils.helpers import check_tournament_admin, tournament_lock, parse_time_string, parse_seconds_to_human_readable
 from utils.debug import get_user_safe, get_mention_safe
 from views.running.logic import run_tournament, add_player_to_match, remove_player_from_match, set_match_winner, all_winners_selected, send_round_winners
+
+ready_check_tasks = set()
 
 class Start_Match_View(discord.ui.View):
     def __init__(self, match_id, tournament: Tournament):
         super().__init__(timeout=None)
         self.match_id = match_id 
-        self.tournament: Tournament = tournament
+        self.tournament: Tournament = tournament        
         
         # Build buttons per-instance with a match_id in each custom_id field to avoid conflicts with other matches
         vote_winner_button = discord.ui.Button(label="🏆 Vote Winner", style=discord.ButtonStyle.green, custom_id=f"vote_winner_button_{match_id}")
@@ -125,16 +127,9 @@ class Start_Match_View(discord.ui.View):
         # Check if the user has the admin role or is a server admin
         if not await check_tournament_admin(interaction, self.tournament):
             return
-           
-        view, thread, match_players = await ready_check(interaction, self.tournament, self.match_id)
         
-        if interaction.response.is_done():
-            await interaction.followup.send("Ready check sent to all players.", ephemeral=True)
-        else:            
-            await interaction.response.send_message("Ready check sent to all players.", ephemeral=True)
-
-        await not_ready_forfeit(self.tournament, interaction, view, thread, match_players)
-
+        await interaction.response.send_modal(Ready_Check_Modal(self.tournament, self.match_id))
+        
 class Transfer_Player_View(discord.ui.View):    
     def __init__(self, tournament, match_id):
         super().__init__(timeout=None)
@@ -229,6 +224,41 @@ class Transfer_Modal(discord.ui.Modal):
             await remove_player_from_match(interaction, self.tournament, self.old_match_id, player) # Remove player from old match
         else:
             await interaction.response.send_message(f"Failed to add {player} to Match {new_match_id}.", ephemeral=True)
+
+class Ready_Check_Modal(discord.ui.Modal):
+    def __init__(self, tournament: Tournament, match_id: str = None):
+        super().__init__(title="Ready Check", timeout=300)
+        self.tournament = tournament
+        self.match_id = match_id
+        self.add_item(discord.ui.InputText(label="Time for players to ready up", value="5m", placeholder="e.g. 5m, 30m, 2h"))
+        self.add_item(discord.ui.InputText(label="Then, time before player removal is offered", value="5m", placeholder="e.g. 5m, 30m, 2h"))
+
+    async def callback(self, interaction: discord.Interaction):
+        ready_seconds = parse_time_string(self.children[0].value.strip().lower())
+        grace_seconds = parse_time_string(self.children[1].value.strip().lower())
+        if not ready_seconds or not grace_seconds:
+            await interaction.response.send_message("Invalid time. Use a position duration like '5m, '30m' or '2h'.", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=True)
+        tournament = Tournament.load_tournament_by_id(interaction.guild.id, self.tournament.id)
+
+        coros = []
+        for match in tournament.matches:
+            if self.match_id and match["id"] != self.match_id:
+                continue
+            thread = discord.utils.get(interaction.guild.threads, id=match.get("thread_id"))
+            if thread and not thread.locked: # skips byes and old rounds
+                coros.append(ready_check(interaction, tournament, match["id"], ready_seconds))
+
+        checks = await asyncio.gather(*coros)
+        await interaction.followup.send(f"Ready check sent to {len(checks)} game(s).", ephemeral=True)
+
+        for view, thread, match_players in checks:
+            task = asyncio.create_task(not_ready_forfeit(tournament, interaction, view, thread, match_players, ready_seconds, grace_seconds))
+            ready_check_tasks.add(task)
+            task.add_done_callback(ready_check_tasks.discard)
+        
 
 class Vote_Winner_View(discord.ui.View):
     def __init__(self, tournament, match_id):
@@ -417,20 +447,22 @@ class Ready_Check_Button(discord.ui.Button):
             self.clicked_users.add(user_name)
             await interaction.response.send_message(f"{interaction.user.display_name} is ready!")
 
-async def ready_check(interaction: discord.Interaction, tournament: Tournament, match_id: int):
+async def ready_check(interaction: discord.Interaction, tournament: Tournament, match_id: int, ready_seconds: int):
     # Find the match, thread, and match players
     match = next(m for m in tournament.matches if m["id"] == match_id)
     thread = discord.utils.get(interaction.guild.threads, id=match["thread_id"])
-    match_players = [player for player in match["players"]]
+    match_players = list(match["players"])
     
     view = Ready_Check_View()
-    await thread.send(f"## Are you ready to start? @everyone", view=view, allowed_mentions=discord.AllowedMentions(everyone=True))
+    await thread.send(f"## Are you ready to start? @everyone.\n\nYou have **{parse_seconds_to_human_readable(ready_seconds)}** to confirm.",
+                      view=view, allowed_mentions=discord.AllowedMentions(everyone=True)
+                      )
 
     return view, thread, match_players
         
-async def not_ready_forfeit(tournament: Tournament, interaction: discord.Interaction, view: Ready_Check_View, thread: discord.Thread, match_players: list):   
-    # Wait for 5 minutes
-    await asyncio.sleep(300)
+async def not_ready_forfeit(tournament: Tournament, interaction: discord.Interaction, view: Ready_Check_View, thread: discord.Thread, match_players: list, ready_seconds: int, grace_seconds: int):   
+    # Wait the selected duration
+    await asyncio.sleep(ready_seconds)
 
     # Tag players who did not click the ready button
     not_ready_players = [player for player in match_players if player not in view.children[0].clicked_users]
@@ -441,15 +473,15 @@ async def not_ready_forfeit(tournament: Tournament, interaction: discord.Interac
     # Send message to players who did not click the ready button
     if not_ready_players:
         not_ready_mentions = " ".join(player.mention for player in not_ready_players)
-        await thread.send(f"## The following players are not ready: {not_ready_mentions}\n### You have 5 minutes to ready up, or forfeit the match.") 
-        # If they are still not ready after 5 minutes, give option to remove them from the match
-        asyncio.create_task(final_not_ready_forfeit(tournament, interaction, view, thread, match_players))
+        await thread.send(f"## The following players are not ready: {not_ready_mentions}\n### You have {parse_seconds_to_human_readable(grace_seconds)} to ready up, or forfeit the match.") 
+        # If they are still not ready after the selected time, give option to remove them from the match
+        asyncio.create_task(final_not_ready_forfeit(tournament, interaction, view, thread, match_players, grace_seconds))
     else:
         await thread.send(f"## All players are ready! Let's start the match!")
 
-async def final_not_ready_forfeit(tournament: Tournament, interaction: discord.Interaction, view: Ready_Check_View, thread: discord.Thread, match_players: list):
-    # Wait for 5 minutes
-    await asyncio.sleep(300)
+async def final_not_ready_forfeit(tournament: Tournament, interaction: discord.Interaction, view: Ready_Check_View, thread: discord.Thread, match_players: list, grace_seconds: int):
+    # Wait the selected duration
+    await asyncio.sleep(grace_seconds)
 
     final_not_ready_list = [player for player in match_players if player not in view.children[0].clicked_users]
 
