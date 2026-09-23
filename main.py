@@ -12,7 +12,6 @@ if os.getenv("GITHUB_ACTIONS") != "true":
     load_dotenv()
 
 intents = discord.Intents.default()
-intents.message_content = True
 intents.members = True
 bot = discord.Bot(intents=intents)
 version = "v2.2"
