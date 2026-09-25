@@ -19,8 +19,8 @@ class setup_async_mode(discord.ui.Modal):
 
         self.add_item(discord.ui.InputText(label="Max players per game?", placeholder="Cannot be higher than 6."))
         self.add_item(discord.ui.InputText(label="Minimum players in each game?", placeholder=f"Cannot be lower than 2 and cannot be higher than the max players per game."))
-        self.add_item(discord.ui.InputText(label="Minimum players in the Final?", placeholder="Leave blank for no minimum"))
         self.add_item(discord.ui.InputText(label="Time limit per round?", placeholder="e.g., '2h', '5m', '30s'"))
+        self.add_item(discord.ui.InputText(label="Minimum players in the Final?", placeholder="Leave blank for no minimum"))
 
     async def callback(self, interaction: discord.Interaction):
         try:
