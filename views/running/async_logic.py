@@ -19,6 +19,7 @@ class setup_async_mode(discord.ui.Modal):
 
         self.add_item(discord.ui.InputText(label="Max players per game?", placeholder="Cannot be higher than 6."))
         self.add_item(discord.ui.InputText(label="Minimum players in each game?", placeholder=f"Cannot be lower than 2 and cannot be higher than the max players per game."))
+        self.add_item(discord.ui.InputText(label="Minimum players in the Final?", placeholder="Leave blank for no minimum"))
         self.add_item(discord.ui.InputText(label="Time limit per round?", placeholder="e.g., '2h', '5m', '30s'"))
 
     async def callback(self, interaction: discord.Interaction):
@@ -38,13 +39,28 @@ class setup_async_mode(discord.ui.Modal):
             await interaction.response.send_message("Invalid time format for 'Time limit per round'. Use e.g. '2h', '5m', '30s'.", ephemeral=True)
             return
 
+        final_value = self.children[3].value.strip()
+
+        if final_value:
+            try:
+                self.final_min_players = int(final_value)
+            except ValueError:
+                await interaction.response.send_message("Minimum players in the Final must be a whole number.", ephemeral=True)
+                return
+            if not (self.min_players_per_match <= self.final_min_players <= self.max_players_per_match):
+                await interaction.response.send_message("Minimum players in the Final must be between the min and max players per game.", ephemeral=True)
+                return
+        else:
+            self.final_min_players = None   # no special final-size targeting
+
         self.submitted = True
         
         # Save the async configuration to the tournament object
         self.tournament.async_config = {
             "min_players_per_match": self.min_players_per_match,
             "max_players_per_match": self.max_players_per_match,
-            "round_deadline_seconds": self.round_deadline_seconds
+            "final_min_players": self.final_min_players,
+            "round_deadline_seconds": self.round_deadline_seconds,
         }
 
         await interaction.response.send_message(
@@ -62,13 +78,21 @@ def valid_table_count_range(n: int, min_size: int, max_size: int):
     
     return (low, high) if low <= high else None
 
-def compute_bye_count_and_table_count(total: int, max_size: int, min_size: int) -> tuple[int, int]:
+def compute_bye_count_and_table_count(total: int, max_size: int, min_size: int, final_min_players: int = None) -> tuple[int, int]:
         for bye_count in range(0, max_size):
             seated = total - bye_count
             table_range = valid_table_count_range(seated, min_size, max_size)
             
             if table_range is not None:
-                return bye_count, table_range[0]  # Fewest tables possible with the given bye_count
+                low, high = table_range
+                num_tables = low
+                
+                if final_min_players and (num_tables + bye_count) < final_min_players:
+                    # More, smaller tables this round -> more winners survive into next round.
+                    # Aim exactly at the target; clamp into what's actually valid this round.
+                    num_tables = min(high, max(low, final_min_players - bye_count))
+                
+                return bye_count, num_tables  # Fewest tables possible with the given bye_count
             
         return 0, 1 # If no valid configuration is found, return 0 byes and 1 table as a fallback (edge case)        
     
@@ -126,7 +150,12 @@ async def run_async_round(tournament: Tournament, interaction: discord.Interacti
                 
         max_size = tournament.async_config["max_players_per_match"]
         min_size = tournament.async_config["min_players_per_match"]
-        bye_count, num_tables = compute_bye_count_and_table_count(len(pool), max_size, min_size)
+        bye_count, num_tables = compute_bye_count_and_table_count(
+                                        len(pool), 
+                                        max_size, 
+                                        min_size,
+                                        final_min_players=tournament.async_config.get("final_min_players"),
+                                        )
         
         shuffle(pool)
         bye_players = select_bye_players(pool, bye_count, tournament.bye_history)
